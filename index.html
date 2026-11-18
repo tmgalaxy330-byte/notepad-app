@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#005fb8">
+<meta name="description" content="Windowsのメモ帳のように使える、オフライン対応の下書きツール">
+<title>無題</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#f3f3f3; --surface:#ffffff; --text:#1b1b1b; --sub:#5f5f5f;
+    --border:#e0e0e0; --hover:#e9e9e9; --accent:#005fb8; --accent-text:#fff;
+    --warn-bg:#fff4ce; --warn-text:#5c4300; --err-bg:#fde7e9; --err-text:#7a1020;
+    --info-bg:#e6f0fa; --info-text:#0b3a66; --ok-bg:#dff6dd; --ok-text:#0e4d0b;
+    --shadow:0 8px 24px rgba(0,0,0,.14);
+    --editor-font:"Consolas","BIZ UDGothic","Yu Gothic UI","Meiryo",monospace;
+  }
+  [data-theme="dark"]{
+    --bg:#202020; --surface:#272727; --text:#e8e8e8; --sub:#a8a8a8;
+    --border:#3a3a3a; --hover:#333333; --accent:#4cc2ff; --accent-text:#000;
+    --warn-bg:#433519; --warn-text:#ffe08a; --err-bg:#442726; --err-text:#ffb4b4;
+    --info-bg:#1d3346; --info-text:#b9dcff; --ok-bg:#1f3a1d; --ok-text:#b6f0b0;
+    --shadow:0 8px 24px rgba(0,0,0,.5);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--text);font-family:"Segoe UI","Yu Gothic UI","Meiryo",sans-serif;font-size:14px;display:flex;flex-direction:column;overflow:hidden}
+  button{font:inherit;color:inherit}
+
+  .titlebar{display:flex;align-items:center;gap:8px;padding:6px 12px;background:var(--bg)}
+  .titlebar img{width:18px;height:18px}
+  .titlebar .doc-title{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .menubar{display:flex;align-items:center;gap:2px;padding:0 6px;background:var(--bg);position:relative;flex-wrap:wrap}
+  .menu{position:relative}
+  .menu > button{background:none;border:none;padding:6px 12px;border-radius:6px;cursor:pointer}
+  .menu > button:hover,.menu.open > button{background:var(--hover)}
+  .dropdown{display:none;position:absolute;top:100%;left:0;min-width:260px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);padding:4px;z-index:50}
+  .menu.open .dropdown{display:block}
+  .dropdown button{display:flex;justify-content:space-between;width:100%;background:none;border:none;padding:7px 10px;border-radius:5px;cursor:pointer;text-align:left}
+  .dropdown button:hover{background:var(--hover)}
+  .dropdown .kbd{color:var(--sub);font-size:12px;margin-left:24px}
+  .dropdown hr{border:none;border-top:1px solid var(--border);margin:4px 0}
+  .dropdown .check::before{content:"✓ ";visibility:hidden}
+  .dropdown .check.on::before{visibility:visible}
+  .spacer{flex:1}
+  .icon-btn{background:none;border:none;padding:6px 10px;border-radius:6px;cursor:pointer}
+  .icon-btn:hover{background:var(--hover)}
+
+  .banner{display:none;align-items:center;gap:10px;padding:8px 14px;font-size:13px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .banner.show{display:flex}
+  .banner.warn{background:var(--warn-bg);color:var(--warn-text)}
+  .banner.err{background:var(--err-bg);color:var(--err-text)}
+  .banner.info{background:var(--info-bg);color:var(--info-text)}
+  .banner.ok{background:var(--ok-bg);color:var(--ok-text)}
+  .banner .msg{flex:1;min-width:200px}
+  .banner button{border:1px solid currentColor;background:transparent;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px}
+
+  .findbar{display:none;gap:6px;align-items:center;padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .findbar.show{display:flex}
+  .findbar input[type=text]{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px 8px;min-width:180px;font:inherit}
+  .findbar button{background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:5px 10px;cursor:pointer}
+  .findbar button:hover{background:var(--hover)}
+  .findbar label{font-size:12px;color:var(--sub);display:flex;align-items:center;gap:4px}
+  .findbar .replace-row{display:none;gap:6px;align-items:center;flex-wrap:wrap}
+  .findbar.replace .replace-row{display:flex}
+  .findbar .find-status{font-size:12px;color:var(--sub)}
+
+  .editor-wrap{flex:1;display:flex;background:var(--surface);margin:0 8px;border:1px solid var(--border);border-radius:8px 8px 0 0;overflow:hidden;min-height:0;position:relative}
+  textarea#editor{flex:1;border:none;outline:none;resize:none;background:transparent;color:var(--text);padding:12px 16px;font-family:var(--editor-font);font-size:16px;line-height:1.6;tab-size:4}
+  textarea#editor.nowrap{white-space:pre;overflow-x:auto}
+  .dropzone{display:none;position:absolute;inset:8px;border:3px dashed var(--accent);border-radius:8px;background:color-mix(in srgb,var(--surface) 85%,transparent);align-items:center;justify-content:center;font-size:18px;color:var(--accent);pointer-events:none}
+  .dropzone.show{display:flex}
+
+  .statusbar{display:flex;font-size:12px;color:var(--sub);background:var(--surface);margin:0 8px 8px;border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px}
+  .statusbar span{padding:5px 14px;border-right:1px solid var(--border);white-space:nowrap}
+  .statusbar span:last-child{border-right:none}
+  .statusbar .grow{flex:1;border-right:1px solid var(--border);overflow:hidden;text-overflow:ellipsis}
+
+  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:100;align-items:center;justify-content:center;padding:16px}
+  .overlay.show{display:flex}
+  .dialog{background:var(--surface);color:var(--text);border-radius:10px;box-shadow:var(--shadow);width:min(560px,100%);max-height:90vh;display:flex;flex-direction:column}
+  .dialog header{padding:16px 20px 8px;font-size:18px;font-weight:600}
+  .dialog .body{padding:4px 20px 12px;overflow:auto}
+  .dialog footer{display:flex;justify-content:flex-end;gap:8px;padding:12px 20px;border-top:1px solid var(--border);flex-wrap:wrap}
+  .btn{border:1px solid var(--border);background:var(--bg);border-radius:6px;padding:6px 16px;cursor:pointer}
+  .btn.primary{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}
+  .btn.danger{color:#c42b1c}
+  .setting-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);gap:12px}
+  .setting-row .desc,.desc{font-size:12px;color:var(--sub)}
+  .setting-row select,.dialog input[type=number]{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:4px 8px;font:inherit}
+  .switch{position:relative;width:40px;height:20px;flex:none}
+  .switch input{opacity:0;width:0;height:0}
+  .switch span{position:absolute;inset:0;border:1px solid var(--sub);border-radius:20px;cursor:pointer;transition:.15s}
+  .switch span::before{content:"";position:absolute;width:12px;height:12px;left:3px;top:3px;border-radius:50%;background:var(--sub);transition:.15s}
+  .switch input:checked + span{background:var(--accent);border-color:var(--accent)}
+  .switch input:checked + span::before{transform:translateX(20px);background:var(--accent-text)}
+  .log-list{font-family:var(--editor-font);font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;max-height:160px;overflow:auto;white-space:pre-wrap;margin-top:6px}
+  .section-title{font-weight:600;margin-top:14px}
+  a{color:var(--accent)}
+  .recent-list{list-style:none;margin:0;padding:0}
+  .recent-list li{display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)}
+  .recent-list li button.open{flex:1;text-align:left;background:none;border:none;padding:10px 6px;cursor:pointer;border-radius:5px}
+  .recent-list li button.open:hover{background:var(--hover)}
+  .recent-list li button.rm{background:none;border:none;color:var(--sub);cursor:pointer;padding:6px 10px;border-radius:5px}
+  .recent-list li button.rm:hover{background:var(--hover)}
+
+  .toast{position:fixed;bottom:56px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 16px;border-radius:6px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:200;max-width:90vw}
+  .toast.show{opacity:1}
+  [data-theme="dark"] .toast{background:#e8e8e8;color:#111}
+
+  #printArea{display:none}
+  @media print{
+    body{display:block;overflow:visible;background:#fff;color:#000}
+    body > *:not(#printArea){display:none !important}
+    #printArea{display:block;white-space:pre-wrap;word-break:break-all;font-family:var(--editor-font);font-size:11pt;line-height:1.5;color:#000}
+  }
+
+  @media (max-width:600px){
+    .statusbar .opt{display:none}
+    .editor-wrap,.statusbar{margin-left:0;margin-right:0;border-radius:0}
+    .statusbar{margin-bottom:0}
+    textarea#editor{font-size:15px;padding:10px 12px}
+    .menu > button{padding:6px 9px}
+  }
+</style>
+</head>
+<body data-theme="light">
+
+<div class="titlebar">
+  <img src="icon.svg" alt="" width="18" height="18">
+  <span class="doc-title" id="docTitle">無題 - 下書きメモ帳</span>
+</div>
+
+<nav class="menubar" id="menubar">
+  <div class="menu">
+    <button data-menu>ファイル</button>
+    <div class="dropdown">
+      <button data-act="new">新規<span class="kbd">Alt+N</span></button>
+      <button data-act="open">開く…<span class="kbd">Ctrl+O</span></button>
+      <button data-act="recent" id="mRecent">最近使ったファイル…<span class="kbd">Ctrl+Shift+O</span></button>
+      <hr>
+      <button data-act="save">上書き保存<span class="kbd">Ctrl+S</span></button>
+      <button data-act="saveAs">名前を付けて保存…<span class="kbd">Ctrl+Shift+S</span></button>
+      <hr>
+      <button data-act="print">印刷…<span class="kbd">Ctrl+P</span></button>
+    </div>
+  </div>
+  <div class="menu">
+    <button data-menu>編集</button>
+    <div class="dropdown">
+      <button data-act="undo">元に戻す<span class="kbd">Ctrl+Z</span></button>
+      <button data-act="redo">やり直し<span class="kbd">Ctrl+Y</span></button>
+      <hr>
+      <button data-act="find">検索<span class="kbd">Ctrl+F</span></button>
+      <button data-act="replace">置換<span class="kbd">Ctrl+H</span></button>
+      <button data-act="goto">行へ移動…<span class="kbd">Ctrl+G</span></button>
+      <hr>
+      <button data-act="selectAll">すべて選択<span class="kbd">Ctrl+A</span></button>
+      <button data-act="timestamp">日付と時刻を挿入<span class="kbd">F5</span></button>
+    </div>
+  </div>
+  <div class="menu">
+    <button data-menu>表示</button>
+    <div class="dropdown">
+      <button data-act="zoomIn">拡大<span class="kbd">Ctrl+＋</span></button>
+      <button data-act="zoomOut">縮小<span class="kbd">Ctrl+－</span></button>
+      <button data-act="zoomReset">既定のズームに戻す<span class="kbd">Ctrl+0</span></button>
+      <hr>
+      <button data-act="toggleWrap" class="check" id="mWrap">右端で折り返す</button>
+      <button data-act="toggleStatus" class="check on" id="mStatus">ステータスバー</button>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <button class="icon-btn" data-act="toggleTheme" title="ダークモード切替" id="themeBtn">🌙</button>
+  <button class="icon-btn" data-act="settings" title="設定">⚙ 設定</button>
+</nav>
+
+<div class="banner ok" id="updateBanner"><span class="msg">新しいバージョンがあります。更新すると書きかけの内容は自動で引き継がれます。</span><button data-act="applyUpdate">今すぐ更新</button><button data-act="dismissUpdate">あとで</button></div>
+<div class="banner err" id="errBanner"><span class="msg" id="errBannerMsg"></span><button data-act="showLog">ログを見る</button><button data-act="dismissErr">閉じる</button></div>
+<div class="banner info" id="restoreBanner"><span class="msg" id="restoreMsg"></span><button data-act="restore">復元する</button><button data-act="discardDraft">破棄</button></div>
+<div class="banner warn" id="warnBanner"><span class="msg" id="warnMsg"></span><button data-act="dismissWarn">閉じる</button></div>
+
+<div class="findbar" id="findbar">
+  <input type="text" id="findInput" placeholder="検索する文字列" aria-label="検索">
+  <button data-act="findPrev" title="前を検索 (Shift+F3)">↑</button>
+  <button data-act="findNext" title="次を検索 (F3)">↓</button>
+  <label><input type="checkbox" id="matchCase">大文字と小文字を区別</label>
+  <span class="find-status" id="findStatus"></span>
+  <div class="replace-row">
+    <input type="text" id="replaceInput" placeholder="置換後の文字列" aria-label="置換">
+    <button data-act="replaceOne">置換</button>
+    <button data-act="replaceAll">すべて置換</button>
+  </div>
+  <div class="spacer"></div>
+  <button data-act="toggleReplaceRow" title="置換の表示切替">置換 ▾</button>
+  <button data-act="closeFind" title="閉じる (Esc)">✕</button>
+</div>
+
+<div class="editor-wrap" id="editorWrap">
+  <textarea id="editor" spellcheck="false" autocomplete="off" placeholder="ここに入力…(ファイルをドラッグ&ドロップしても開けます)"></textarea>
+  <div class="dropzone" id="dropzone">ここにファイルをドロップして開く</div>
+</div>
+
+<footer class="statusbar" id="statusbar">
+  <span id="stPos">行 1、列 1</span>
+  <span id="stCount">0 文字</span>
+  <span class="grow" id="stSave">未保存</span>
+  <span class="opt" id="stZoom">100%</span>
+  <span class="opt" id="stEol">Windows (CRLF)</span>
+  <span class="opt" id="stEnc">UTF-8</span>
+</footer>
+
+<!-- 行へ移動 -->
+<div class="overlay" id="gotoDlg">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="gotoTitle" style="width:min(360px,100%)">
+    <header id="gotoTitle">行へ移動</header>
+    <div class="body">
+      <label>行番号:<input type="number" id="gotoInput" min="1" value="1" style="width:120px"></label>
+      <div class="desc" id="gotoHint" style="margin-top:6px"></div>
+    </div>
+    <footer><button class="btn" data-act="closeGoto">キャンセル</button><button class="btn primary" data-act="doGoto">移動</button></footer>
+  </div>
+</div>
+
+<!-- 未保存確認 -->
+<div class="overlay" id="confirmDlg">
+  <div class="dialog" role="dialog" aria-modal="true" style="width:min(420px,100%)">
+    <header>下書きメモ帳</header>
+    <div class="body"><p id="confirmMsg">変更内容を保存しますか?</p></div>
+    <footer>
+      <button class="btn primary" data-act="confirmSave">保存する</button>
+      <button class="btn" data-act="confirmDiscard">保存しない</button>
+      <button class="btn" data-act="confirmCancel">キャンセル</button>
+    </footer>
+  </div>
+</div>
+
+<!-- 汎用の確認(上書き確認など) -->
+<div class="overlay" id="askDlg">
+  <div class="dialog" role="dialog" aria-modal="true" style="width:min(460px,100%)">
+    <header id="askTitle">確認</header>
+    <div class="body"><p id="askMsg"></p></div>
+    <footer>
+      <button class="btn primary" data-act="askOk" id="askOkBtn">OK</button>
+      <button class="btn" data-act="askCancel">キャンセル</button>
+    </footer>
+  </div>
+</div>
+
+<!-- 最近使ったファイル -->
+<div class="overlay" id="recentDlg">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="recentTitle">
+    <header id="recentTitle">最近使ったファイル</header>
+    <div class="body">
+      <ul class="recent-list" id="recentList"></ul>
+      <p class="desc" id="recentEmpty" style="display:none">まだありません。「開く」または「保存」したファイルがここに表示されます(最大10件)。</p>
+    </div>
+    <footer>
+      <button class="btn danger" data-act="clearRecent">一覧を消去</button>
+      <button class="btn primary" data-act="closeRecent">閉じる</button>
+    </footer>
+  </div>
+</div>
+
+<!-- 設定 -->
+<div class="overlay" id="settingsDlg">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+    <header id="setTitle">設定</header>
+    <div class="body">
+      <div class="setting-row">
+        <div><div>テーマ</div><div class="desc">画面の明るさ</div></div>
+        <select id="setTheme"><option value="light">ライト</option><option value="dark">ダーク</option><option value="system">システム設定に従う</option></select>
+      </div>
+      <div class="setting-row">
+        <div><div>右端で折り返す</div><div class="desc">長い行を画面幅で折り返して表示</div></div>
+        <label class="switch"><input type="checkbox" id="setWrap"><span></span></label>
+      </div>
+      <div class="setting-row">
+        <div><div>文字の大きさ</div><div class="desc">既定のフォントサイズ(px)</div></div>
+        <select id="setFont"><option>12</option><option>14</option><option selected>16</option><option>18</option><option>20</option><option>24</option></select>
+      </div>
+      <div class="setting-row">
+        <div><div>自動保存(一時保存)</div><div class="desc">書きかけの内容をブラウザ内に一時保存し、閉じても復元できるようにする</div></div>
+        <label class="switch"><input type="checkbox" id="setAutosave" checked><span></span></label>
+      </div>
+      <div class="setting-row">
+        <div><div>保存時の改行コード</div><div class="desc">新規ファイルの改行形式</div></div>
+        <select id="setEol"><option value="CRLF">Windows (CRLF)</option><option value="LF">Unix (LF)</option></select>
+      </div>
+
+      <div class="section-title">この環境の状態</div>
+      <p class="desc" id="envInfo" style="margin:4px 0"></p>
+      <p class="desc" id="persistInfo" style="margin:4px 0"></p>
+      <p class="desc" id="offlineInfo" style="margin:4px 0"></p>
+
+      <div class="section-title">エラーログ</div>
+      <div class="log-list" id="logList">記録されたエラーはありません。</div>
+      <div style="margin-top:6px"><button class="btn" data-act="clearLog">ログを消去</button></div>
+
+      <div class="section-title">ヘルプ</div>
+      <p style="margin:6px 0"><a href="manual.html" target="_blank" rel="noopener">取扱説明書を開く</a></p>
+      <p class="desc" style="margin:4px 0">バージョン:<span id="verInfo"></span></p>
+    </div>
+    <footer><button class="btn primary" data-act="closeSettings">閉じる</button></footer>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept=".txt,.md,.log,.csv,text/plain" hidden>
+<div class="toast" id="toast"></div>
+<div id="printArea"></div>
+
+<script>
+(() => {
+  'use strict';
+  const APP_VERSION = '検討中(ver未確定)';
+  const $ = id => document.getElementById(id);
+  const ed = $('editor');
+
+  /* ================= 小さな保存領域(設定・ログ・タブ生存記録) ================= */
+  const mem = {};
+  const store = {
+    get(k){ try { const v = localStorage.getItem(k); return v === null ? (k in mem ? mem[k] : null) : v; } catch(e){ return k in mem ? mem[k] : null; } },
+    set(k,v){ mem[k] = v; try { localStorage.setItem(k, v); return true; } catch(e){ return false; } },
+    del(k){ delete mem[k]; try { localStorage.removeItem(k); } catch(e){} },
+    keys(prefix){ const out = new Set(Object.keys(mem).filter(k => k.startsWith(prefix)));
+      try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(prefix)) out.add(k); } } catch(e){}
+      return [...out]; }
+  };
+  const K = { settings:'np.settings', log:'np.errorlog', seen:'np.lastSeenLog', visited:'np.visited' };
+
+  /* ================= 大きな保存領域(IndexedDB:一時保存・最近使ったファイル) ================= */
+  const idb = (() => {
+    let dbp = null, failed = false;
+    const memStores = { drafts: new Map(), recent: new Map() };
+    const p = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+    function open(){
+      if (failed) return Promise.reject(new Error('IndexedDB unavailable'));
+      if (!dbp) dbp = new Promise((res, rej) => {
+        let r; try { r = indexedDB.open('notepad-db', 1); } catch(e){ rej(e); return; }
+        r.onupgradeneeded = () => { const db = r.result;
+          if (!db.objectStoreNames.contains('drafts')) db.createObjectStore('drafts');
+          if (!db.objectStoreNames.contains('recent')) db.createObjectStore('recent'); };
+        r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+        r.onblocked = () => rej(new Error('IndexedDB blocked'));
+      }).catch(e => { failed = true; throw e; });
+      return dbp;
+    }
+    async function os(name, mode){ const db = await open(); return db.transaction(name, mode).objectStore(name); }
+    async function safe(fn, fallback){ try { return await fn(); } catch(e){ if (failed) return fallback(); throw e; } }
+    return {
+      get ok(){ return !failed; },
+      get: (s,k) => safe(async () => p((await os(s,'readonly')).get(k)), () => memStores[s].get(k)),
+      put: (s,k,v) => safe(async () => p((await os(s,'readwrite')).put(v,k)), () => { memStores[s].set(k,v); }),
+      del: (s,k) => safe(async () => p((await os(s,'readwrite')).delete(k)), () => { memStores[s].delete(k); }),
+      entries: (s) => safe(async () => {
+        const o = await os(s,'readonly');
+        return new Promise((res, rej) => { const out = []; const c = o.openCursor();
+          c.onsuccess = () => { const cur = c.result; if (cur) { out.push({ key: cur.key, value: cur.value }); cur.continue(); } else res(out); };
+          c.onerror = () => rej(c.error); });
+      }, () => [...memStores[s]].map(([key, value]) => ({ key, value })))
+    };
+  })();
+
+  /* ================= エラーログ ================= */
+  function readLog(){ try { return JSON.parse(store.get(K.log) || '[]'); } catch(e){ return []; } }
+  function logError(where, err){
+    const list = readLog();
+    list.push({ t: new Date().toISOString(), where, msg: String(err && err.message || err) });
+    while (list.length > 50) list.shift();
+    store.set(K.log, JSON.stringify(list));
+    toast('エラーが発生しました:' + where);
+    renderLog();
+  }
+  function renderLog(){
+    const list = readLog();
+    $('logList').textContent = list.length
+      ? list.slice().reverse().map(e => `${fmtDate(e.t)}  [${e.where}]  ${e.msg}`).join('\n')
+      : '記録されたエラーはありません。';
+  }
+  window.addEventListener('error', e => logError('予期しないエラー', e.error || e.message));
+  window.addEventListener('unhandledrejection', e => logError('予期しないエラー', e.reason));
+
+  /* ================= タブの識別(複数タブで一時保存が上書きし合わないように) ================= */
+  const ALIVE_MS = 3 * 60 * 1000; // 背景タブはタイマーが間引かれるため長め。閉じたタブは pagehide で即時解除
+  const isAlive = id => { const t = +store.get('np.alive.' + id); return !!t && Date.now() - t < ALIVE_MS; };
+  let tabId = null;
+  try { tabId = sessionStorage.getItem('np.tabId'); } catch(e){}
+  const navType = ((performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {}).type;
+  if (tabId && navType !== 'reload' && isAlive(tabId)) tabId = null; // 「タブを複製」で同じIDが引き継がれた場合
+  if (!tabId) { tabId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7); try { sessionStorage.setItem('np.tabId', tabId); } catch(e){} }
+  const heartbeat = () => store.set('np.alive.' + tabId, String(Date.now()));
+  heartbeat(); setInterval(heartbeat, 4000);
+
+  /* ================= 状態・設定 ================= */
+  const state = { fileName:null, handle:null, lastModified:0, dirty:false, savedAt:null, eol:'CRLF', enc:'UTF-8', zoom:100, pending:null, updating:false };
+  const defaults = { theme:'light', wrap:true, font:16, autosave:true, eol:'CRLF', status:true };
+  let settings = Object.assign({}, defaults);
+  try { Object.assign(settings, JSON.parse(store.get(K.settings) || '{}')); } catch(e){}
+  const saveSettings = () => store.set(K.settings, JSON.stringify(settings));
+
+  const inTopWindow = (() => { try { return window.self === window.top; } catch(e){ return false; } })();
+  const fsaSupported = 'showSaveFilePicker' in window && 'showOpenFilePicker' in window && inTopWindow;
+
+  /* ================= 表示更新 ================= */
+  const p2 = n => String(n).padStart(2,'0');
+  function fmtDate(iso){ const d = new Date(iso); return `${d.getFullYear()}/${p2(d.getMonth()+1)}/${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`; }
+  function headLabel(text, n){
+    const nl = text.indexOf('\n');
+    const first = [...(nl === -1 ? text.slice(0, 200) : text.slice(0, Math.min(nl, 200))).trim()];
+    if (!first.length) return '無題';
+    return '無題: ' + first.slice(0, n).join('') + (first.length > n ? '…' : '');
+  }
+  // タブ見出し:未保存は「●」、ファイル名を先頭に。無題なら1行目の冒頭で見分けられるようにする
+  function updateTitle(){
+    const label = state.fileName || headLabel(ed.value, 20);
+    $('docTitle').textContent = (state.dirty ? '● ' : '') + label + ' - 下書きメモ帳';
+    document.title = (state.dirty ? '● ' : '') + label;
+  }
+  let rafId = 0;
+  function scheduleStatus(){ if (rafId) return; rafId = requestAnimationFrame(() => { rafId = 0; updateStatus(); if (!state.fileName) updateTitle(); }); }
+  function updateStatus(){
+    const v = ed.value, pos = ed.selectionStart;
+    let line = 1, lastNl = -1, nls = 0, pairs = 0;
+    for (let i = 0; i < v.length; i++) {
+      const c = v.charCodeAt(i);
+      if (c === 10) { nls++; if (i < pos) { line++; lastNl = i; } }
+      else if (c >= 0xD800 && c <= 0xDBFF) pairs++;
+    }
+    $('stPos').textContent = `行 ${line}、列 ${pos - lastNl}`;
+    $('stCount').textContent = `${(v.length - nls - pairs).toLocaleString()} 文字`;
+    $('stZoom').textContent = state.zoom + '%';
+    $('stEol').textContent = state.eol === 'CRLF' ? 'Windows (CRLF)' : 'Unix (LF)';
+    $('stEnc').textContent = state.enc;
+    $('stSave').textContent = state.dirty ? '未保存の変更あり'
+      : (state.savedAt ? `保存済み ${fmtDate(state.savedAt)}` : (state.fileName ? '変更なし' : '未保存'));
+  }
+  function applySettings(){
+    let theme = settings.theme;
+    if (theme === 'system') theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.body.dataset.theme = theme;
+    $('themeBtn').textContent = theme === 'dark' ? '☀' : '🌙';
+    ed.classList.toggle('nowrap', !settings.wrap);
+    ed.setAttribute('wrap', settings.wrap ? 'soft' : 'off');
+    $('mWrap').classList.toggle('on', settings.wrap);
+    $('mStatus').classList.toggle('on', settings.status);
+    $('statusbar').style.display = settings.status ? '' : 'none';
+    ed.style.fontSize = (settings.font * state.zoom / 100) + 'px';
+    $('setTheme').value = settings.theme; $('setWrap').checked = settings.wrap;
+    $('setFont').value = String(settings.font); $('setAutosave').checked = settings.autosave;
+    $('setEol').value = settings.eol;
+    updateStatus();
+  }
+  let toastTimer;
+  function toast(msg){ const t = $('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600); }
+  function showWarn(msg){ $('warnMsg').textContent = msg; $('warnBanner').classList.add('show'); }
+
+  /* ================= 自動保存(IndexedDB への一時保存) ================= */
+  let autoTimer, quotaWarned = false, draftExists = false;
+  function scheduleAutosave(){ if (!settings.autosave) return; clearTimeout(autoTimer); autoTimer = setTimeout(writeDraft, 1500); }
+  async function writeDraft(){
+    clearTimeout(autoTimer);
+    try {
+      if (!state.dirty || !settings.autosave) { if (draftExists) { await idb.del('drafts', tabId); draftExists = false; } return; }
+      await idb.put('drafts', tabId, { text: ed.value, name: state.fileName, eol: state.eol, t: new Date().toISOString() });
+      draftExists = true; quotaWarned = false;
+    } catch(e){
+      if (e && e.name === 'QuotaExceededError') {
+        if (!quotaWarned) { quotaWarned = true; logError('自動保存', '保存容量が不足しているため一時保存できませんでした');
+          showWarn('保存容量が足りないため一時保存できませんでした。こまめに「保存」でファイルに保存してください。'); }
+      } else logError('自動保存', e);
+    }
+  }
+  async function deleteOwnDraft(){ clearTimeout(autoTimer); try { await idb.del('drafts', tabId); draftExists = false; } catch(e){ logError('一時保存の削除', e); } }
+
+  /* ================= 最近使ったファイル(ファイルへの参照を IndexedDB に保存) ================= */
+  const RECENT_MAX = 10;
+  async function addRecent(handle){
+    if (!handle) return;
+    try {
+      const list = await idb.entries('recent');
+      for (const { key, value } of list) {
+        try { if (await value.handle.isSameEntry(handle)) await idb.del('recent', key); } catch(e){ await idb.del('recent', key); }
+      }
+      await idb.put('recent', Date.now() + '-' + Math.random().toString(36).slice(2,6), { handle, name: handle.name, t: new Date().toISOString() });
+      const all = (await idb.entries('recent')).sort((a, b) => a.value.t < b.value.t ? 1 : -1);
+      for (const x of all.slice(RECENT_MAX)) await idb.del('recent', x.key);
+    } catch(e){ logError('最近使ったファイルの記録', e); }
+  }
+  async function showRecent(){
+    const ul = $('recentList'); ul.textContent = '';
+    let list = [];
+    try { list = (await idb.entries('recent')).sort((a, b) => a.value.t < b.value.t ? 1 : -1); } catch(e){ logError('最近使ったファイルの読み込み', e); }
+    $('recentEmpty').style.display = list.length ? 'none' : '';
+    list.forEach(({ key, value }) => {
+      const li = document.createElement('li');
+      const b = document.createElement('button'); b.className = 'open';
+      b.textContent = value.name; const s = document.createElement('div'); s.className = 'desc'; s.textContent = '最終使用:' + fmtDate(value.t); b.appendChild(s);
+      b.addEventListener('click', () => { closeDlg('recentDlg'); guardUnsaved(() => openRecent(key, value)); });
+      const rm = document.createElement('button'); rm.className = 'rm'; rm.title = '一覧から外す'; rm.textContent = '✕';
+      rm.addEventListener('click', async () => { await idb.del('recent', key); showRecent(); });
+      li.append(b, rm); ul.appendChild(li);
+    });
+    openDlg('recentDlg');
+  }
+  async function openRecent(key, value){
+    try {
+      const h = value.handle;
+      let perm = await h.queryPermission({ mode: 'read' });
+      if (perm !== 'granted') perm = await h.requestPermission({ mode: 'read' });
+      if (perm !== 'granted') { toast('ファイルへのアクセスが許可されませんでした'); return; }
+      const f = await h.getFile();
+      loadBuffer(await f.arrayBuffer(), f.name, h, f.lastModified);
+    } catch(e){
+      if (e && e.name === 'NotFoundError') { await idb.del('recent', key); showWarn(`「${value.name}」が見つかりません(移動・削除された可能性があります)。一覧から外しました。`); return; }
+      logError('最近使ったファイルを開く', e);
+    }
+  }
+
+  /* ================= 同じファイルを複数タブで開いたときの警告 ================= */
+  let bc = null;
+  try { bc = new BroadcastChannel('notepad-sync'); } catch(e){}
+  function announce(type){
+    if (!bc || !state.handle) return;
+    try { bc.postMessage({ type, from: tabId, handle: state.handle }); } catch(e){ /* 参照を送れない環境では何もしない */ }
+  }
+  async function sameFile(h){ try { return !!(state.handle && h && await state.handle.isSameEntry(h)); } catch(e){ return false; } }
+  if (bc) bc.onmessage = async ev => {
+    const m = ev.data || {}; if (m.from === tabId) return;
+    if (m.type === 'opened' && await sameFile(m.handle)) {
+      showWarn(`「${state.fileName}」は別のタブでも開かれています。両方で編集すると、後から保存した方で上書きされます。`);
+      try { bc.postMessage({ type:'alsoOpen', from: tabId, to: m.from }); } catch(e){}
+    } else if (m.type === 'alsoOpen' && m.to === tabId) {
+      showWarn(`「${state.fileName}」は別のタブでも開かれています。両方で編集すると、後から保存した方で上書きされます。`);
+    } else if (m.type === 'saved' && await sameFile(m.handle)) {
+      showWarn(`別のタブで「${state.fileName}」が保存されました。このタブで保存すると、その内容を上書きします。`);
+    }
+  };
+
+  /* ================= 文書操作 ================= */
+  function setDoc(text, name, handle, eol, enc, lastModified){
+    ed.value = text; state.fileName = name; state.handle = handle || null; state.lastModified = lastModified || 0;
+    state.eol = eol || settings.eol; state.enc = enc || 'UTF-8';
+    state.dirty = false; state.savedAt = null;
+    ed.setSelectionRange(0,0); ed.scrollTop = 0;
+    deleteOwnDraft();
+    updateTitle(); updateStatus(); ed.focus();
+  }
+  function guardUnsaved(next){
+    if (!state.dirty) { next(); return; }
+    state.pending = next;
+    $('confirmMsg').textContent = `「${state.fileName || headLabel(ed.value, 20)}」への変更内容を保存しますか?`;
+    openDlg('confirmDlg');
+  }
+  function decode(buf){
+    const bytes = new Uint8Array(buf);
+    if (bytes[0]===0xFF && bytes[1]===0xFE) return { text: new TextDecoder('utf-16le').decode(bytes.subarray(2)), enc: 'UTF-16 LE' };
+    if (bytes[0]===0xFE && bytes[1]===0xFF) return { text: new TextDecoder('utf-16be').decode(bytes.subarray(2)), enc: 'UTF-16 BE' };
+    let start = 0;
+    if (bytes[0]===0xEF && bytes[1]===0xBB && bytes[2]===0xBF) start = 3;
+    try { return { text: new TextDecoder('utf-8', { fatal:true }).decode(bytes.subarray(start)), enc: start ? 'UTF-8 (BOM)' : 'UTF-8' }; }
+    catch(e){ return { text: new TextDecoder('shift_jis').decode(bytes), enc: 'Shift_JIS' }; }
+  }
+  function loadBuffer(buf, name, handle, lastModified){
+    const { text, enc } = decode(buf);
+    const eol = /\r\n/.test(text) ? 'CRLF' : (/\n/.test(text) ? 'LF' : settings.eol);
+    setDoc(text.replace(/\r\n?/g, '\n'), name, handle, eol, enc, lastModified);
+    if (!enc.startsWith('UTF-8')) showWarn(`このファイルは ${enc} で読み込みました。保存すると UTF-8 に変換されます。`);
+    toast(`「${name}」を開きました`);
+    if (handle) { addRecent(handle); announce('opened'); }
+  }
+  async function openFile(){
+    try {
+      if (fsaSupported) {
+        const [h] = await window.showOpenFilePicker({ types:[{ description:'テキスト', accept:{ 'text/plain':['.txt','.md','.log','.csv'] } }] });
+        const f = await h.getFile();
+        loadBuffer(await f.arrayBuffer(), f.name, h, f.lastModified);
+      } else { $('fileInput').value = ''; $('fileInput').click(); }
+    } catch(e){
+      if (e && e.name === 'AbortError') return;
+      if (e && (e.name === 'SecurityError' || e.name === 'NotAllowedError')) {
+        showWarn('この環境ではファイルへの直接アクセスが制限されています。通常のファイル選択で開きます。');
+        $('fileInput').value = ''; $('fileInput').click(); return;
+      }
+      logError('ファイルを開く', e);
+    }
+  }
+  $('fileInput').addEventListener('change', async ev => {
+    const f = ev.target.files[0]; if (!f) return;
+    try { loadBuffer(await f.arrayBuffer(), f.name, null, f.lastModified); } catch(e){ logError('ファイルを開く', e); }
+  });
+  const outputText = () => state.eol === 'CRLF' ? ed.value.replace(/\n/g, '\r\n') : ed.value;
+  function markSaved(name){
+    state.fileName = name; state.dirty = false; state.savedAt = new Date().toISOString();
+    state.enc = 'UTF-8'; deleteOwnDraft(); updateTitle(); updateStatus();
+  }
+  async function save(forceAs){
+    try {
+      if (fsaSupported) {
+        let h = state.handle;
+        if (h && !forceAs && state.lastModified) {
+          // 開いた後に別の場所で書き換えられていないか確認
+          let cur = null; try { cur = await h.getFile(); } catch(e){}
+          if (cur && cur.lastModified > state.lastModified) {
+            const ok = await ask('ファイルが変更されています',
+              `「${h.name}」は、このタブで開いた後に別の場所(別のタブやアプリ)で変更されています。上書きすると、その変更は失われます。上書きしますか?`, '上書きする');
+            if (!ok) return false;
+          }
+        }
+        if (!h || forceAs) {
+          h = await window.showSaveFilePicker({ suggestedName: state.fileName || (headLabel(ed.value, 30).replace(/^無題: ?/, '').replace(/[\\/:*?"<>|…]/g, '') || '無題') + '.txt',
+            types:[{ description:'テキスト', accept:{ 'text/plain':['.txt'] } }] });
+        }
+        const w = await h.createWritable(); await w.write(outputText()); await w.close();
+        state.handle = h;
+        try { state.lastModified = (await h.getFile()).lastModified; } catch(e){ state.lastModified = Date.now(); }
+        markSaved(h.name); toast('保存しました');
+        addRecent(h); announce('saved');
+        return true;
+      }
+      return downloadSave();
+    } catch(e){
+      if (e && e.name === 'AbortError') return false;
+      if (e && (e.name === 'SecurityError' || e.name === 'NotAllowedError')) {
+        showWarn('この環境ではファイルへの上書き保存が制限されています。ダウンロードフォルダに保存します。');
+        return downloadSave();
+      }
+      logError('保存', e); return false;
+    }
+  }
+  function downloadSave(){
+    let name = state.fileName || (headLabel(ed.value, 30).replace(/^無題: ?/, '').replace(/[\\/:*?"<>|…]/g, '') || '無題');
+    if (!/\.[^.]+$/.test(name)) name += '.txt';
+    const blob = new Blob([outputText()], { type:'text/plain;charset=utf-8' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    markSaved(name); toast('ダウンロードフォルダに保存しました'); return true;
+  }
+
+  /* ================= 汎用の確認ダイアログ ================= */
+  let askResolve = null;
+  function ask(title, msg, okLabel){
+    $('askTitle').textContent = title; $('askMsg').textContent = msg; $('askOkBtn').textContent = okLabel || 'OK';
+    openDlg('askDlg');
+    return new Promise(res => { askResolve = res; });
+  }
+  function answerAsk(v){ closeDlg('askDlg'); const r = askResolve; askResolve = null; if (r) r(v); }
+
+  /* ================= 編集補助 ================= */
+  function insertText(text){
+    ed.focus();
+    const ok = document.execCommand && document.execCommand('insertText', false, text);
+    if (!ok) { ed.setRangeText(text, ed.selectionStart, ed.selectionEnd, 'end'); onInput(); }
+  }
+  function timestamp(){ const d = new Date();
+    insertText(`${p2(d.getHours())}:${p2(d.getMinutes())} ${d.getFullYear()}/${p2(d.getMonth()+1)}/${p2(d.getDate())}`); }
+
+  /* ================= 検索・置換 ================= */
+  function openFind(withReplace){
+    const fb = $('findbar'); fb.classList.add('show'); fb.classList.toggle('replace', !!withReplace);
+    const sel = ed.value.slice(ed.selectionStart, ed.selectionEnd);
+    if (sel && !sel.includes('\n')) $('findInput').value = sel;
+    $('findInput').focus(); $('findInput').select(); updateFindCount();
+  }
+  const norm = s => $('matchCase').checked ? s : s.toLowerCase();
+  function countMatches(q){ if (!q) return 0; const h = norm(ed.value), n = norm(q); let c = 0, i = 0;
+    while ((i = h.indexOf(n, i)) !== -1) { c++; i += n.length; } return c; }
+  function updateFindCount(){ const q = $('findInput').value; $('findStatus').textContent = q ? `${countMatches(q)} 件` : ''; }
+  function find(dir){
+    const q = $('findInput').value; if (!q) { $('findInput').focus(); return false; }
+    const h = norm(ed.value), n = norm(q);
+    let idx;
+    if (dir > 0) { idx = h.indexOf(n, ed.selectionEnd); if (idx === -1) idx = h.indexOf(n, 0); }
+    else { idx = h.lastIndexOf(n, Math.max(0, ed.selectionStart - 1)); if (idx === -1 || idx >= ed.selectionStart) idx = h.lastIndexOf(n); }
+    if (idx === -1) { $('findStatus').textContent = '見つかりません'; return false; }
+    ed.focus(); ed.setSelectionRange(idx, idx + q.length); scrollToCaret(); updateFindCount(); updateStatus();
+    return true;
+  }
+  function replaceOne(){
+    const q = $('findInput').value; if (!q) return;
+    const sel = ed.value.slice(ed.selectionStart, ed.selectionEnd);
+    if (sel && norm(sel) === norm(q)) insertText($('replaceInput').value);
+    find(1);
+  }
+  function replaceAll(){
+    const q = $('findInput').value; if (!q) return;
+    const n = countMatches(q); if (!n) { $('findStatus').textContent = '見つかりません'; return; }
+    const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $('matchCase').checked ? 'g' : 'gi');
+    const r = $('replaceInput').value;
+    const out = ed.value.replace(re, () => r);
+    ed.focus(); ed.select(); insertText(out); ed.setSelectionRange(0,0);
+    $('findStatus').textContent = `${n} 件置換しました`;
+  }
+  function scrollToCaret(){
+    const lineH = parseFloat(getComputedStyle(ed).lineHeight) || 24;
+    const line = ed.value.slice(0, ed.selectionStart).split('\n').length;
+    const target = (line - 1) * lineH;
+    if (target < ed.scrollTop || target > ed.scrollTop + ed.clientHeight - lineH*2) ed.scrollTop = Math.max(0, target - ed.clientHeight/3);
+  }
+
+  /* ================= 行へ移動 ================= */
+  function openGoto(){
+    const total = ed.value.split('\n').length;
+    $('gotoHint').textContent = `1 ~ ${total} 行`; $('gotoInput').max = total;
+    $('gotoInput').value = ed.value.slice(0, ed.selectionStart).split('\n').length;
+    openDlg('gotoDlg'); $('gotoInput').select();
+  }
+  function doGoto(){
+    const lines = ed.value.split('\n'); const n = parseInt($('gotoInput').value, 10);
+    if (!(n >= 1 && n <= lines.length)) { $('gotoHint').textContent = `行番号は 1 ~ ${lines.length} で指定してください`; return; }
+    let pos = 0; for (let i = 0; i < n - 1; i++) pos += lines[i].length + 1;
+    closeDlg('gotoDlg'); ed.focus(); ed.setSelectionRange(pos, pos); scrollToCaret(); updateStatus();
+  }
+
+  /* ================= 印刷 ================= */
+  function fillPrint(){ $('printArea').textContent = ed.value || ' '; }
+  window.addEventListener('beforeprint', fillPrint);
+  window.addEventListener('afterprint', () => { $('printArea').textContent = ''; });
+
+  /* ================= ドラッグ&ドロップで開く ================= */
+  let dragDepth = 0;
+  const hasFiles = e => e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
+  document.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; $('dropzone').classList.add('show'); });
+  document.addEventListener('dragover', e => { if (!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+  document.addEventListener('dragleave', e => { if (!hasFiles(e)) return; if (--dragDepth <= 0) { dragDepth = 0; $('dropzone').classList.remove('show'); } });
+  document.addEventListener('drop', e => {
+    if (!hasFiles(e)) return;
+    e.preventDefault(); dragDepth = 0; $('dropzone').classList.remove('show');
+    const item = e.dataTransfer.items && e.dataTransfer.items[0];
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    // ドロップ処理中にしか取得できないため、先にファイル参照を要求しておく(対応環境のみ)
+    const handleP = (fsaSupported && item && item.getAsFileSystemHandle) ? item.getAsFileSystemHandle().catch(() => null) : Promise.resolve(null);
+    guardUnsaved(async () => {
+      try {
+        const h = await handleP;
+        const f = (h && h.kind === 'file') ? await h.getFile() : file;
+        loadBuffer(await f.arrayBuffer(), f.name, (h && h.kind === 'file') ? h : null, f.lastModified);
+      } catch(err){ logError('ドロップしたファイルを開く', err); }
+    });
+  });
+
+  /* ================= ダイアログ・メニュー ================= */
+  function openDlg(id){ closeMenus(); $(id).classList.add('show'); }
+  function closeDlg(id){ $(id).classList.remove('show'); }
+  function zoom(delta){ state.zoom = delta === 0 ? 100 : Math.min(500, Math.max(10, state.zoom + delta)); applySettings(); }
+  function closeMenus(){ document.querySelectorAll('.menu.open').forEach(m => m.classList.remove('open')); }
+  document.querySelectorAll('[data-menu]').forEach(b => {
+    b.addEventListener('click', e => { e.stopPropagation(); const m = b.parentElement; const was = m.classList.contains('open'); closeMenus(); if (!was) m.classList.add('open'); });
+    b.addEventListener('mouseenter', () => { if (document.querySelector('.menu.open') && !b.parentElement.classList.contains('open')) { closeMenus(); b.parentElement.classList.add('open'); } });
+  });
+  document.addEventListener('click', e => { if (!e.target.closest('.menu')) closeMenus(); });
+
+  /* ================= 復元候補の提示 ================= */
+  let currentOffer = null;
+  async function listDrafts(includeOwn){
+    const out = [];
+    const all = await idb.entries('drafts');
+    for (const { key, value } of all) {
+      if (key === tabId ? !includeOwn : isAlive(key)) continue; // 開いている他タブの分は対象外。自分の分は起動時(再読み込み)のみ
+      if (value && typeof value.text === 'string') out.push({ key, d: value }); else await idb.del('drafts', key);
+    }
+    return out.sort((a, b) => a.d.t < b.d.t ? 1 : -1);
+  }
+  async function offerDrafts(includeOwn){
+    let list = [];
+    try { list = await listDrafts(includeOwn); } catch(e){ logError('一時保存の読み込み', e); }
+    if (!list.length) { currentOffer = null; $('restoreBanner').classList.remove('show'); return false; }
+    const { key, d } = list[0]; currentOffer = key;
+    const rest = list.length > 1 ? `(ほかに ${list.length - 1} 件)` : '';
+    $('restoreMsg').textContent = `${fmtDate(d.t)} に一時保存された書きかけの内容(${d.name || headLabel(d.text, 15)}、${[...d.text].length.toLocaleString()} 文字)があります。${rest}`;
+    $('restoreBanner').classList.add('show');
+    return true;
+  }
+
+  /* ================= 更新(オフライン機能 / Service Worker) ================= */
+  let waitingWorker = null;
+  function registerSW(){
+    if (!('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) {
+      $('offlineInfo').textContent = 'オフライン機能:この開き方では使えません(https で公開したページから開いてください)';
+      return;
+    }
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      $('offlineInfo').textContent = 'オフライン機能:有効(一度開いた後はネットなしで使えます)';
+      const onWaiting = w => { waitingWorker = w; $('updateBanner').classList.add('show'); };
+      if (reg.waiting && navigator.serviceWorker.controller) onWaiting(reg.waiting);
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing; if (!nw) return;
+        nw.addEventListener('statechange', () => { if (nw.state === 'installed' && navigator.serviceWorker.controller) onWaiting(nw); });
+      });
+      setInterval(() => reg.update().catch(() => {}), 60 * 60 * 1000);
+    }).catch(e => { $('offlineInfo').textContent = 'オフライン機能:登録に失敗しました'; logError('オフライン機能の登録', e); });
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (state.updating) location.reload(); });
+  }
+
+  /* ================= データ保護(persist) ================= */
+  async function requestPersist(){
+    const el = $('persistInfo');
+    try {
+      if (!(navigator.storage && navigator.storage.persist)) { el.textContent = 'データ保護:この環境では使えません'; return; }
+      let ok = await navigator.storage.persisted();
+      if (!ok) ok = await navigator.storage.persist();
+      el.textContent = ok ? 'データ保護:許可済み(容量不足時もブラウザが自動で消しにくくなります)'
+                          : 'データ保護:未許可(ブラウザが自動で判断します。よく使うと許可されやすくなります)';
+    } catch(e){ el.textContent = 'データ保護:確認できませんでした'; logError('データ保護の確認', e); }
+  }
+
+  /* ================= アクション ================= */
+  const actions = {
+    new: () => guardUnsaved(() => setDoc('', null, null)),
+    open: () => guardUnsaved(openFile),
+    recent: () => fsaSupported ? showRecent() : toast('この環境では「最近使ったファイル」は使えません'),
+    closeRecent: () => closeDlg('recentDlg'),
+    clearRecent: async () => { for (const { key } of await idb.entries('recent')) await idb.del('recent', key); showRecent(); toast('一覧を消去しました'); },
+    save: () => save(false),
+    saveAs: () => save(true),
+    print: () => { fillPrint(); window.print(); },
+    undo: () => { ed.focus(); document.execCommand('undo'); },
+    redo: () => { ed.focus(); document.execCommand('redo'); },
+    find: () => openFind(false),
+    replace: () => openFind(true),
+    toggleReplaceRow: () => $('findbar').classList.toggle('replace'),
+    closeFind: () => { $('findbar').classList.remove('show'); ed.focus(); },
+    findNext: () => find(1), findPrev: () => find(-1),
+    replaceOne, replaceAll,
+    goto: openGoto, doGoto, closeGoto: () => closeDlg('gotoDlg'),
+    selectAll: () => { ed.focus(); ed.select(); },
+    timestamp,
+    zoomIn: () => zoom(10), zoomOut: () => zoom(-10), zoomReset: () => zoom(0),
+    toggleWrap: () => { settings.wrap = !settings.wrap; saveSettings(); applySettings(); },
+    toggleStatus: () => { settings.status = !settings.status; saveSettings(); applySettings(); },
+    toggleTheme: () => { settings.theme = document.body.dataset.theme === 'dark' ? 'light' : 'dark'; saveSettings(); applySettings(); },
+    settings: () => { renderLog(); openDlg('settingsDlg'); },
+    closeSettings: () => { closeDlg('settingsDlg'); ed.focus(); },
+    clearLog: () => { store.del(K.log); store.del(K.seen); renderLog(); toast('エラーログを消去しました'); },
+    showLog: () => { $('errBanner').classList.remove('show'); renderLog(); openDlg('settingsDlg'); },
+    dismissErr: () => $('errBanner').classList.remove('show'),
+    dismissWarn: () => $('warnBanner').classList.remove('show'),
+    dismissUpdate: () => $('updateBanner').classList.remove('show'),
+    applyUpdate: async () => {
+      if (!waitingWorker) return;
+      state.updating = true; await writeDraft();
+      waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+    },
+    restore: () => {
+      const key = currentOffer; $('restoreBanner').classList.remove('show');
+      if (!key) return;
+      guardUnsaved(async () => {
+        try {
+          const d = await idb.get('drafts', key);
+          if (!d) { toast('この書きかけは別のタブで復元済みか、削除されています'); offerDrafts(false); return; }
+          if (key !== tabId) await idb.del('drafts', key);
+          ed.value = d.text; state.fileName = d.name; state.handle = null; state.lastModified = 0;
+          state.eol = d.eol || settings.eol; state.enc = 'UTF-8'; state.dirty = true;
+          updateTitle(); updateStatus(); await writeDraft(); toast('書きかけの内容を復元しました'); ed.focus();
+          if (d.name) showWarn('復元した内容は元のファイルとの関連付けが外れています。「名前を付けて保存」で保存してください。');
+        } catch(e){ logError('復元', e); }
+        offerDrafts(false);
+      });
+    },
+    discardDraft: async () => {
+      $('restoreBanner').classList.remove('show');
+      try { if (currentOffer && (currentOffer !== tabId || !state.dirty)) await idb.del('drafts', currentOffer); } catch(e){ logError('一時保存の破棄', e); }
+      toast('一時保存を破棄しました'); offerDrafts(false);
+    },
+    confirmSave: async () => { closeDlg('confirmDlg'); const ok = await save(false); const p = state.pending; state.pending = null; if (ok && p) p(); },
+    confirmDiscard: () => { closeDlg('confirmDlg'); state.dirty = false; deleteOwnDraft(); const p = state.pending; state.pending = null; if (p) p(); },
+    confirmCancel: () => { closeDlg('confirmDlg'); state.pending = null; ed.focus(); },
+    askOk: () => answerAsk(true), askCancel: () => answerAsk(false)
+  };
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-act]'); if (!el) return;
+    e.preventDefault(); closeMenus();
+    const fn = actions[el.dataset.act];
+    if (fn) { try { const r = fn(); if (r && r.catch) r.catch(err => logError(el.dataset.act, err)); } catch(err){ logError(el.dataset.act, err); } }
+  });
+
+  /* ================= 設定ダイアログの入力 ================= */
+  $('setTheme').addEventListener('change', e => { settings.theme = e.target.value; saveSettings(); applySettings(); });
+  $('setWrap').addEventListener('change', e => { settings.wrap = e.target.checked; saveSettings(); applySettings(); });
+  $('setFont').addEventListener('change', e => { settings.font = +e.target.value; saveSettings(); applySettings(); });
+  $('setAutosave').addEventListener('change', e => { settings.autosave = e.target.checked; saveSettings(); if (!settings.autosave) deleteOwnDraft(); else scheduleAutosave(); });
+  $('setEol').addEventListener('change', e => { settings.eol = e.target.value; saveSettings(); if (!state.fileName) { state.eol = settings.eol; updateStatus(); } });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (settings.theme === 'system') applySettings(); });
+
+  /* ================= エディター入力 ================= */
+  function onInput(){ if (!state.dirty) { state.dirty = true; updateTitle(); } scheduleStatus(); scheduleAutosave(); }
+  ed.addEventListener('input', onInput);
+  ['keyup','click','select','focus'].forEach(ev => ed.addEventListener(ev, scheduleStatus));
+  document.addEventListener('selectionchange', () => { if (document.activeElement === ed) scheduleStatus(); });
+  ed.addEventListener('keydown', e => { if (e.key === 'Tab' && !e.ctrlKey && !e.altKey) { e.preventDefault(); insertText('\t'); } });
+  $('findInput').addEventListener('input', updateFindCount);
+  $('matchCase').addEventListener('change', updateFindCount);
+  $('findInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); find(e.shiftKey ? -1 : 1); } });
+  $('replaceInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); replaceOne(); } });
+  $('gotoInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doGoto(); } });
+
+  /* ================= ショートカット ================= */
+  document.addEventListener('keydown', e => {
+    const c = e.ctrlKey || e.metaKey, k = (e.key || '').toLowerCase();
+    const run = a => { e.preventDefault(); actions[a](); };
+    if (e.key === 'Escape') {
+      if ($('askDlg').classList.contains('show')) return run('askCancel');
+      if ($('confirmDlg').classList.contains('show')) return run('confirmCancel');
+      ['gotoDlg','settingsDlg','recentDlg'].forEach(closeDlg);
+      if ($('findbar').classList.contains('show')) actions.closeFind();
+      closeMenus(); return;
+    }
+    if (e.key === 'F3') return run(e.shiftKey ? 'findPrev' : 'findNext');
+    if (e.key === 'F5' && !c) return run('timestamp');
+    // Ctrl+N はChromeが新しいウィンドウ用に予約しておりページでは受け取れないため Alt+N を使う
+    if (e.altKey && !c && k === 'n') return run('new');
+    if (!c) return;
+    if (k === 's' && e.shiftKey) return run('saveAs');
+    if (k === 's') return run('save');
+    if (k === 'o' && e.shiftKey) return run('recent');
+    if (k === 'o') return run('open');
+    if (k === 'p') return run('print');
+    if (k === 'f') return run('find');
+    if (k === 'h') return run('replace');
+    if (k === 'g') return run('goto');
+    if (k === '=' || k === '+' || k === ';') return run('zoomIn');
+    if (k === '-') return run('zoomOut');
+    if (k === '0') return run('zoomReset');
+  });
+  ed.addEventListener('wheel', e => { if (e.ctrlKey) { e.preventDefault(); zoom(e.deltaY < 0 ? 10 : -10); } }, { passive:false });
+
+  /* ================= 終了時 ================= */
+  window.addEventListener('beforeunload', e => { writeDraft(); if (state.dirty && !state.updating) { e.preventDefault(); e.returnValue = ''; } });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') writeDraft(); });
+  window.addEventListener('pagehide', () => { writeDraft(); store.del('np.alive.' + tabId); });
+
+  /* ================= 起動処理 ================= */
+  async function startup(){
+    applySettings(); updateTitle(); state.eol = settings.eol; updateStatus();
+    $('verInfo').textContent = APP_VERSION;
+    $('mRecent').style.display = fsaSupported ? '' : 'none';
+    // 前回のエラー通知
+    const log = readLog(), seen = store.get(K.seen) || '';
+    const unseen = log.filter(e => e.t > seen);
+    if (unseen.length) {
+      const last = unseen[unseen.length - 1];
+      $('errBannerMsg').textContent = `前回の使用中に ${unseen.length} 件のエラーがありました(最新:${fmtDate(last.t)}「${last.where}」${last.msg})`;
+      $('errBanner').classList.add('show');
+      store.set(K.seen, log[log.length - 1].t);
+    }
+    // 古いタブ生存記録の掃除(1日以上前)
+    store.keys('np.alive.').forEach(k => { if (Date.now() - (+store.get(k) || 0) > 86400000) store.del(k); });
+    // 書きかけの復元(このタブの再読み込み分 + 閉じられたタブの残り)
+    const found = await offerDrafts(true);
+    if (!found && !store.get(K.visited)) {
+      // ブラウザのデータが全消去されると「訪問済み」の印も消えるため、初回起動と区別できない。両方の可能性を伝える。
+      showWarn('このブラウザで初めて開いたか、前回終了時にブラウザのデータが消去された可能性があります。会社PCなど閉じるとデータが消える環境では、こまめに「保存」でファイルに保存してください。');
+    }
+    store.set(K.visited, '1');
+    if (!idb.ok) showWarn('この環境では一時保存用の保存領域が使えません。閉じると書きかけは消えるため、こまめに「保存」してください。');
+    $('envInfo').textContent = fsaSupported
+      ? '保存方式:ファイルへ直接上書き保存(この環境で利用可能)'
+      : '保存方式:ダウンロード保存(この環境ではファイルへの直接保存は利用できません)';
+    registerSW();
+    requestPersist();
+    ed.focus();
+  }
+
+  // 動作確認用の窓口(URL に ?selftest を付けたときだけ有効)
+  if (/[?&]selftest\b/.test(location.search)) {
+    window.__np = { loadHandle: async h => { const f = await h.getFile(); loadBuffer(await f.arrayBuffer(), f.name, h, f.lastModified); },
+      save, state, idb, tabId, writeDraft };
+  }
+
+  startup().catch(e => logError('起動', e));
+})();
+</script>
+</body>
+</html>

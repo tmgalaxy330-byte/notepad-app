@@ -1,0 +1,16 @@
+{
+  "name": "下書きメモ帳",
+  "short_name": "メモ帳",
+  "description": "Windowsのメモ帳のように使える、オフライン対応の下書きツール",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f3f3",
+  "theme_color": "#005fb8",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

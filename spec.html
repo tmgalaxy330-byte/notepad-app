@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>設計仕様書 - 下書きメモ帳</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root{--bg:#fff;--side:#f3f3f3;--text:#1b1b1b;--sub:#5f5f5f;--border:#e0e0e0;--accent:#005fb8;--note:#fff4ce;--note-text:#5c4300}
+  @media (prefers-color-scheme:dark){:root{--bg:#1f1f1f;--side:#272727;--text:#e8e8e8;--sub:#a8a8a8;--border:#3a3a3a;--accent:#4cc2ff;--note:#433519;--note-text:#ffe08a}}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI","Yu Gothic UI","Meiryo",sans-serif;background:var(--bg);color:var(--text);line-height:1.8}
+  .side{position:fixed;top:0;left:0;bottom:0;width:260px;background:var(--side);border-right:1px solid var(--border);overflow:auto;transition:width .2s}
+  .side .head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;font-weight:600;position:sticky;top:0;background:var(--side)}
+  .side button{background:none;border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text);padding:2px 8px}
+  .side nav a{display:block;padding:5px 16px;color:var(--text);text-decoration:none;font-size:14px;border-left:3px solid transparent}
+  .side nav a.sub{padding-left:30px;font-size:13px;color:var(--sub)}
+  .side nav a:hover{background:rgba(127,127,127,.12)}
+  .side nav a.active{border-left-color:var(--accent);color:var(--accent)}
+  body.collapsed .side{width:48px}
+  body.collapsed .side nav,body.collapsed .side .title{display:none}
+  main{margin-left:260px;padding:24px 40px 80px;max-width:960px;transition:margin .2s}
+  body.collapsed main{margin-left:48px}
+  h1{font-size:26px;border-bottom:2px solid var(--accent);padding-bottom:6px}
+  h2{font-size:20px;margin-top:40px;border-left:5px solid var(--accent);padding-left:10px}
+  h3{font-size:16px;margin-top:24px}
+  table{border-collapse:collapse;width:100%;margin:8px 0}
+  th,td{border:1px solid var(--border);padding:6px 10px;text-align:left;font-size:14px;vertical-align:top}
+  th{background:var(--side)}
+  kbd{border:1px solid var(--border);border-bottom-width:2px;border-radius:4px;padding:0 5px;font-size:12px;background:var(--side)}
+  .note{background:var(--note);color:var(--note-text);padding:10px 14px;border-radius:6px;margin:10px 0}
+  .label{display:inline-block;background:#6b4fbb;color:#fff;font-size:12px;border-radius:4px;padding:0 8px}
+  @media (max-width:700px){.side{width:48px}.side nav,.side .title{display:none}main{margin-left:48px;padding:16px}
+    body.open .side{width:240px}body.open .side nav,body.open .side .title{display:block}}
+</style>
+</head>
+<body>
+<aside class="side">
+  <div class="head"><span class="title">目次</span><button id="toggle" title="目次の表示切替" aria-label="目次の表示切替">☰</button></div>
+  <nav id="toc">
+    <a href="#overview">1. 概要</a>
+    <a href="#req">2. 要件</a>
+    <a href="#env">3. 動作環境・制約</a>
+    <a href="#files">4. ファイル構成</a>
+    <a href="#arch">5. 構成と処理の流れ</a>
+    <a href="#storage">6. データ保存設計</a>
+    <a href="#fileio">7. ファイル入出力</a>
+    <a href="#conflict">8. 競合の検知</a>
+    <a href="#sw">9. オフライン・更新</a>
+    <a href="#ui">10. 画面仕様</a>
+    <a href="#keys">11. ショートカット</a>
+    <a href="#error">12. エラー処理・ログ</a>
+    <a href="#deploy">13. 公開・更新手順</a>
+    <a href="#test">14. 受け入れ条件</a>
+    <a href="#history">15. 更新履歴</a>
+  </nav>
+</aside>
+<main>
+<h1>下書きメモ帳 設計仕様書 <span class="label">検討中(ver未確定)</span></h1>
+
+<h2 id="overview">1. 概要</h2>
+<p>Windowsのメモ帳と同等の書式なしテキスト編集を、PWA(ブラウザで動くアプリ)として提供する。会社PC(管理者権限なし)とAndroidで、インストールなしでもオフラインで使えることを重視する。</p>
+
+<h2 id="req">2. 要件</h2>
+<table>
+<tr><th>区分</th><th>内容</th></tr>
+<tr><td>対象端末</td><td>Windows PC(Edge / Chrome)、Android(Chrome)</td></tr>
+<tr><td>インストール</td><td>不要(任意でPWAとしてインストール可)</td></tr>
+<tr><td>オフライン</td><td>初回アクセス後はネット接続なしで起動・編集・保存できる</td></tr>
+<tr><td>文書方式</td><td>1タブ1ファイル(メモ帳と同じ)。複数タブ同時利用可</td></tr>
+<tr><td>同期</td><td>なし(データは端末内のみ。外部送信なし)</td></tr>
+<tr><td>公開</td><td>GitHub Pages(公開リポジトリ)。置くのはアプリ本体のみ</td></tr>
+<tr><td>共通仕様</td><td>エラーログ保存と次回起動時の通知、設定画面から取扱説明書を参照</td></tr>
+</table>
+
+<h2 id="env">3. 動作環境・制約</h2>
+<ul>
+<li>ファイルへの直接保存(File System Access API)はChromium系(Edge / Chrome、Chrome Android 132以降)のみ。非対応・会社ポリシーで禁止(DefaultFileSystemWriteGuardSetting 等)の場合はダウンロード保存に自動で切り替える。</li>
+<li>Service Worker は https または localhost でのみ動作する。file:// で開いた場合はオフライン機能なし。</li>
+<li>Chrome は <kbd>Ctrl</kbd>+<kbd>N</kbd>/<kbd>T</kbd>/<kbd>W</kbd> をページに渡さないため、新規作成は <kbd>Alt</kbd>+<kbd>N</kbd> とする。</li>
+<li>保存時の文字コードは UTF-8(BOMなし)固定。TextEncoder が UTF-8 のみ対応のため。読込は UTF-8 / UTF-8(BOM) / UTF-16 LE・BE(BOM付き) / Shift_JIS(UTF-8として不正な場合)。</li>
+<li>会社ポリシー ClearBrowsingDataOnExit 有効時は、閉じると一時保存・キャッシュが消える。検知は不可能なため、初回起動と同じ扱いで注意を表示する。</li>
+</ul>
+
+<h2 id="files">4. ファイル構成</h2>
+<table>
+<tr><th>ファイル</th><th>役割</th></tr>
+<tr><td>index.html</td><td>アプリ本体(HTML・CSS・JavaScriptを1ファイルに格納)</td></tr>
+<tr><td>sw.js</td><td>Service Worker。オフライン用キャッシュと更新の切替。<strong>公開のたびに CACHE_VERSION を変更する</strong></td></tr>
+<tr><td>manifest.webmanifest</td><td>PWA設定(名前、アイコン、表示形式 standalone)</td></tr>
+<tr><td>icon.svg / icon-192.png / icon-512.png / icon-maskable-512.png</td><td>アイコン</td></tr>
+<tr><td>manual.html</td><td>取扱説明書(アプリの設定画面からリンク、オフラインでも閲覧可)</td></tr>
+<tr><td>spec.html</td><td>本書(設計仕様書)</td></tr>
+</table>
+
+<h2 id="arch">5. 構成と処理の流れ</h2>
+<h3>起動時</h3>
+<ol>
+<li>設定(localStorage)を読み込み、テーマ等を反映</li>
+<li>未確認のエラーログがあれば赤バナーで通知</li>
+<li>一時保存(IndexedDB)から復元候補を探し、あれば青バナーで案内。なく、かつ訪問記録もなければ「初回またはデータ消去の可能性」を黄バナーで表示</li>
+<li>Service Worker を登録、persist() を要求</li>
+</ol>
+<h3>主な状態(state)</h3>
+<table>
+<tr><th>名前</th><th>内容</th></tr>
+<tr><td>fileName / handle</td><td>開いているファイル名と、ファイル参照(FileSystemFileHandle。ダウンロード方式では null)</td></tr>
+<tr><td>lastModified</td><td>開いた/保存した時点のファイル更新時刻(競合検知に使用)</td></tr>
+<tr><td>dirty</td><td>未保存の変更があるか</td></tr>
+<tr><td>eol / enc</td><td>改行コード(CRLF/LF)、読み込んだ文字コード</td></tr>
+</table>
+
+<h2 id="storage">6. データ保存設計</h2>
+<table>
+<tr><th>保存先</th><th>キー</th><th>内容</th></tr>
+<tr><td>localStorage</td><td>np.settings</td><td>設定(テーマ、折り返し、文字サイズ、自動保存、改行コード、ステータスバー)</td></tr>
+<tr><td>localStorage</td><td>np.errorlog / np.lastSeenLog</td><td>エラーログ(最大50件)と、通知済みの最終時刻</td></tr>
+<tr><td>localStorage</td><td>np.alive.&lt;tabId&gt;</td><td>タブの生存記録(4秒ごと更新、pagehideで削除、3分で失効、1日で掃除)</td></tr>
+<tr><td>localStorage</td><td>np.visited</td><td>訪問済みの印</td></tr>
+<tr><td>sessionStorage</td><td>np.tabId</td><td>タブ識別子(再読み込みでは維持。タブ複製時は新規発行)</td></tr>
+<tr><td>IndexedDB notepad-db / drafts</td><td>tabId</td><td>一時保存 {text, name, eol, t}。入力停止1.5秒後、画面が隠れたとき、閉じるときに書き込み。保存・新規・破棄で削除</td></tr>
+<tr><td>IndexedDB notepad-db / recent</td><td>時刻+乱数</td><td>最近使ったファイル {handle, name, t}。最大10件、同じファイルは isSameEntry で重複排除</td></tr>
+</table>
+<p>復元候補:自タブの分は起動時のみ、他タブの分は生存記録が失効しているもののみ。新しい順に1件ずつ案内する。IndexedDB が使えない場合はメモリに退避し、警告を表示する。</p>
+
+<h2 id="fileio">7. ファイル入出力</h2>
+<ul>
+<li>開く:showOpenFilePicker → 不可なら input[type=file]。ドラッグ&ドロップは getAsFileSystemHandle が使えればファイル参照ごと取得する。</li>
+<li>保存:ファイル参照があれば createWritable で上書き。なければ showSaveFilePicker(初期名はファイル名、無題なら1行目)。SecurityError / NotAllowedError のときはダウンロード保存に切り替えて警告する。</li>
+<li>改行:内部は LF。保存時に eol が CRLF なら変換する。</li>
+<li>印刷:beforeprint で本文を印刷専用領域に複製し、印刷用CSSで本文のみ出力する。</li>
+</ul>
+
+<h2 id="conflict">8. 競合の検知</h2>
+<ul>
+<li><strong>上書き前の確認</strong>:保存直前に getFile().lastModified を取得し、state.lastModified より新しければ確認ダイアログを出す。</li>
+<li><strong>複数タブ</strong>:BroadcastChannel「notepad-sync」でファイル参照を送り、isSameEntry で同じファイルか判定する。opened(開いた)→ 相手が alsoOpen で応答し、双方に警告。saved(保存した)→ 同じファイルを開いている他のタブに警告。</li>
+</ul>
+
+<h2 id="sw">9. オフライン・更新</h2>
+<ul>
+<li>install でアプリの全ファイル(取扱説明書・本書を含む)をキャッシュ。読み込みはキャッシュ優先。キャッシュにない画面はネットから取得し、オフラインで取得できない場合のみ index.html を返す。</li>
+<li>新しい sw.js を検知すると waiting 状態で待機し、画面に「新しいバージョンがあります」を表示。「今すぐ更新」で一時保存を書き込み → SKIP_WAITING → controllerchange で再読み込み → 自タブの書きかけを復元案内。</li>
+<li>1時間ごとに更新を確認する。</li>
+</ul>
+
+<h2 id="ui">10. 画面仕様</h2>
+<ul>
+<li>構成:タイトル行/メニュー(ファイル・編集・表示)/通知バナー(更新・エラー・復元・注意)/検索バー/本文/ステータスバー</li>
+<li>タブ見出し:「● 」(未保存時)+ ファイル名。無題は「無題: 1行目の冒頭20文字…」</li>
+<li>ステータスバー:行・列、文字数(改行を除く、サロゲートペアは1文字)、保存状態、倍率、改行コード、文字コード。画面幅600px以下では後半3項目を隠す。</li>
+<li>テーマ:ライト/ダーク/システム。Windows 11メモ帳に近い配色。</li>
+</ul>
+
+<h2 id="keys">11. ショートカット</h2>
+<p>取扱説明書6章と同じ。新規 <kbd>Alt</kbd>+<kbd>N</kbd>、開く <kbd>Ctrl</kbd>+<kbd>O</kbd>、最近 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>、保存 <kbd>Ctrl</kbd>+<kbd>S</kbd>、名前を付けて <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>、印刷 <kbd>Ctrl</kbd>+<kbd>P</kbd>、検索 <kbd>Ctrl</kbd>+<kbd>F</kbd>/<kbd>F3</kbd>、置換 <kbd>Ctrl</kbd>+<kbd>H</kbd>、行移動 <kbd>Ctrl</kbd>+<kbd>G</kbd>、日時 <kbd>F5</kbd>、ズーム <kbd>Ctrl</kbd>+<kbd>+</kbd>/<kbd>-</kbd>/<kbd>0</kbd>。</p>
+
+<h2 id="error">12. エラー処理・ログ</h2>
+<ul>
+<li>各操作は try/catch で囲み、logError(発生箇所, 内容) で記録・トースト表示。window の error / unhandledrejection も記録する。</li>
+<li>ログは最大50件。次回起動時、前回確認以降のエラー件数と最新内容を赤バナーで通知する。</li>
+<li>ユーザーのキャンセル(AbortError)はエラーとして扱わない。</li>
+</ul>
+
+<h2 id="deploy">13. 公開・更新手順</h2>
+<ol>
+<li>GitHubの公開リポジトリにファイル一式をルートに置く。</li>
+<li>Settings → Pages → Source:Deploy from a branch、Branch:main / (root)。</li>
+<li>更新時:ファイルを差し替え、<strong>sw.js の CACHE_VERSION を必ず変更</strong>する。</li>
+</ol>
+
+<h2 id="test">14. 受け入れ条件</h2>
+<ul>
+<li>オンラインで一度開いた後、オフラインで再読み込みしても起動・編集・保存できる</li>
+<li>複数タブの書きかけが混ざらず、閉じたタブの書きかけを別タブで復元できる</li>
+<li>同じファイルを2タブで開くと双方に警告が出る/外部で変更されたファイルの上書き前に確認が出る</li>
+<li>最近使ったファイルから開ける(最大10件、重複なし)</li>
+<li>sw.js 更新時に更新バナーが表示され、「今すぐ更新」で書きかけを保ったまま新版になる</li>
+<li>ドラッグ&ドロップで開ける/印刷で本文のみ出力される</li>
+<li>エラー発生後の次回起動でエラー通知が出る</li>
+<li>Shift_JIS・UTF-16 ファイルが文字化けせず開ける</li>
+</ul>
+
+<h2 id="history">15. 更新履歴</h2>
+<table>
+<tr><th>バージョン</th><th>日付</th><th>内容</th></tr>
+<tr><td>検討中(ver未確定)</td><td>2026-11-18</td><td>初版の試作。HTML試作の不具合修正(タブ別一時保存、Alt+N、UTF-16、容量超過警告、性能)、提案6件(IndexedDB一時保存、persist、最近使ったファイル、競合警告、更新通知、D&D・印刷)を実装。</td></tr>
+</table>
+</main>
+<script>
+  const body = document.body, KEY = 'np.spec.collapsed';
+  try { if (localStorage.getItem(KEY) === '1') body.classList.add('collapsed'); } catch(e){}
+  document.getElementById('toggle').addEventListener('click', () => {
+    if (matchMedia('(max-width:700px)').matches) { body.classList.toggle('open'); return; }
+    body.classList.toggle('collapsed');
+    try { localStorage.setItem(KEY, body.classList.contains('collapsed') ? '1' : '0'); } catch(e){}
+  });
+  document.querySelectorAll('#toc a').forEach(a => a.addEventListener('click', () => body.classList.remove('open')));
+  const links = [...document.querySelectorAll('#toc a')];
+  const io = new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting) {
+    links.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + en.target.id)); } }), { rootMargin: '0px 0px -70% 0px' });
+  document.querySelectorAll('main h2[id], main h3[id]').forEach(h => io.observe(h));
+</script>
+</body>
+</html>

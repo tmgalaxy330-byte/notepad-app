@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>取扱説明書 - 下書きメモ帳</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root{--bg:#fff;--side:#f3f3f3;--text:#1b1b1b;--sub:#5f5f5f;--border:#e0e0e0;--accent:#005fb8;--note:#fff4ce;--note-text:#5c4300}
+  @media (prefers-color-scheme:dark){:root{--bg:#1f1f1f;--side:#272727;--text:#e8e8e8;--sub:#a8a8a8;--border:#3a3a3a;--accent:#4cc2ff;--note:#433519;--note-text:#ffe08a}}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI","Yu Gothic UI","Meiryo",sans-serif;background:var(--bg);color:var(--text);line-height:1.8}
+  .side{position:fixed;top:0;left:0;bottom:0;width:260px;background:var(--side);border-right:1px solid var(--border);overflow:auto;transition:width .2s}
+  .side .head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;font-weight:600;position:sticky;top:0;background:var(--side)}
+  .side button{background:none;border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text);padding:2px 8px}
+  .side nav a{display:block;padding:5px 16px;color:var(--text);text-decoration:none;font-size:14px;border-left:3px solid transparent}
+  .side nav a.sub{padding-left:30px;font-size:13px;color:var(--sub)}
+  .side nav a:hover{background:rgba(127,127,127,.12)}
+  .side nav a.active{border-left-color:var(--accent);color:var(--accent)}
+  body.collapsed .side{width:48px}
+  body.collapsed .side nav,body.collapsed .side .title{display:none}
+  main{margin-left:260px;padding:24px 40px 80px;max-width:960px;transition:margin .2s}
+  body.collapsed main{margin-left:48px}
+  h1{font-size:26px;border-bottom:2px solid var(--accent);padding-bottom:6px}
+  h2{font-size:20px;margin-top:40px;border-left:5px solid var(--accent);padding-left:10px}
+  h3{font-size:16px;margin-top:24px}
+  table{border-collapse:collapse;width:100%;margin:8px 0}
+  th,td{border:1px solid var(--border);padding:6px 10px;text-align:left;font-size:14px;vertical-align:top}
+  th{background:var(--side)}
+  kbd{border:1px solid var(--border);border-bottom-width:2px;border-radius:4px;padding:0 5px;font-size:12px;background:var(--side)}
+  .note{background:var(--note);color:var(--note-text);padding:10px 14px;border-radius:6px;margin:10px 0}
+  .label{display:inline-block;background:#6b4fbb;color:#fff;font-size:12px;border-radius:4px;padding:0 8px}
+  @media (max-width:700px){.side{width:48px}.side nav,.side .title{display:none}main{margin-left:48px;padding:16px}
+    body.open .side{width:240px}body.open .side nav,body.open .side .title{display:block}}
+</style>
+</head>
+<body>
+<aside class="side">
+  <div class="head"><span class="title">目次</span><button id="toggle" title="目次の表示切替" aria-label="目次の表示切替">☰</button></div>
+  <nav id="toc">
+    <a href="#intro">1. このアプリについて</a>
+    <a href="#start">2. 使い始める</a>
+    <a class="sub" href="#start-pc">2-1. Windows PC</a>
+    <a class="sub" href="#start-android">2-2. Android</a>
+    <a href="#basic">3. 基本の使い方</a>
+    <a class="sub" href="#file">3-1. 開く・保存</a>
+    <a class="sub" href="#recent">3-2. 最近使ったファイル</a>
+    <a class="sub" href="#edit">3-3. 編集・検索</a>
+    <a class="sub" href="#view">3-4. 表示・印刷</a>
+    <a href="#autosave">4. 一時保存と復元</a>
+    <a href="#tabs">5. 複数タブで使うとき</a>
+    <a href="#keys">6. ショートカット一覧</a>
+    <a href="#settings">7. 設定</a>
+    <a href="#update">8. アプリの更新</a>
+    <a href="#trouble">9. 困ったとき</a>
+    <a href="#errorlog">10. エラーログ</a>
+    <a href="#history">11. 更新履歴</a>
+  </nav>
+</aside>
+<main>
+<h1>下書きメモ帳 取扱説明書 <span class="label">検討中(ver未確定)</span></h1>
+
+<h2 id="intro">1. このアプリについて</h2>
+<p>Windowsの「メモ帳」と同じ感覚で使える、文章の下書き用ツールです。ブラウザ(Edge・Chrome)で動き、一度開けばインターネットにつながっていなくても使えます。</p>
+<ul>
+  <li>書いた文章は、<strong>あなたの端末の中だけ</strong>に保存されます。インターネット上には送信されません。</li>
+  <li>インストールは不要です(インストールしてアプリのように使うこともできます)。</li>
+  <li>パソコンとスマートフォンの間で、文章は共有(同期)されません。</li>
+</ul>
+
+<h2 id="start">2. 使い始める</h2>
+<h3 id="start-pc">2-1. Windows PC(Edge または Chrome)</h3>
+<ol>
+  <li>アプリのURLをEdgeかChromeで開きます(1回目だけインターネット接続が必要です)。</li>
+  <li>お気に入り(ブックマーク)に登録しておくと、次から簡単に開けます。</li>
+  <li>(任意)アドレスバー右側の「アプリをインストール」アイコンを押すと、専用のウィンドウで開けるようになります。会社の設定によっては表示されませんが、ブラウザのままでも同じように使えます。</li>
+</ol>
+<h3 id="start-android">2-2. Android(Chrome)</h3>
+<ol>
+  <li>アプリのURLをChromeで開きます。</li>
+  <li>右上の「︙」メニューから「ホーム画面に追加」(または「アプリをインストール」)を選ぶと、ホーム画面から起動できます。</li>
+</ol>
+
+<h2 id="basic">3. 基本の使い方</h2>
+<h3 id="file">3-1. 開く・保存</h3>
+<table>
+  <tr><th>操作</th><th>方法</th><th>説明</th></tr>
+  <tr><td>新規</td><td>ファイル → 新規(<kbd>Alt</kbd>+<kbd>N</kbd>)</td><td>白紙から書き始めます。未保存の変更があれば保存するか確認します。</td></tr>
+  <tr><td>開く</td><td>ファイル → 開く(<kbd>Ctrl</kbd>+<kbd>O</kbd>)、またはファイルを画面にドラッグ&ドロップ</td><td>.txt などのテキストファイルを開きます。Shift_JIS や UTF-16 のファイルも読み込めます。</td></tr>
+  <tr><td>上書き保存</td><td>ファイル → 上書き保存(<kbd>Ctrl</kbd>+<kbd>S</kbd>)</td><td>開いているファイルにそのまま保存します。初めての保存では保存先を選びます。</td></tr>
+  <tr><td>名前を付けて保存</td><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></td><td>別の名前・場所に保存します。</td></tr>
+</table>
+<div class="note">
+  <strong>保存のしかたは環境によって変わります。</strong><br>
+  ・通常:開いたファイルに直接上書き保存されます(初回は「編集を許可しますか」と確認されます)。<br>
+  ・会社の設定でファイルへの直接保存が禁止されている場合:自動的に「ダウンロードフォルダへの保存」に切り替わります。<br>
+  今どちらの方式かは「設定 → この環境の状態」で確認できます。
+</div>
+<div class="note">保存すると文字コードは常に <strong>UTF-8</strong> になります。Shift_JIS のまま保存することはできません。</div>
+<p>開いた後に、別のタブや別のアプリで同じファイルが書き換えられていた場合は、上書き保存の前に「上書きしますか?」と確認します。</p>
+
+<h3 id="recent">3-2. 最近使ったファイル</h3>
+<p>ファイル → 最近使ったファイル(<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>)で、最近開いた・保存したファイルを最大10件表示します。選ぶと、ファイルを探し直さずに開けます。</p>
+<ul>
+  <li>開くときに「ファイルの閲覧を許可しますか」と聞かれることがあります。「許可」を押してください。</li>
+  <li>ファイルを移動・削除していた場合は開けず、一覧から自動的に外れます。</li>
+  <li>ファイルへの直接保存ができない環境では、このメニューは表示されません。</li>
+</ul>
+
+<h3 id="edit">3-3. 編集・検索</h3>
+<ul>
+  <li>元に戻す <kbd>Ctrl</kbd>+<kbd>Z</kbd> / やり直し <kbd>Ctrl</kbd>+<kbd>Y</kbd></li>
+  <li>検索 <kbd>Ctrl</kbd>+<kbd>F</kbd>:検索バーに文字を入れて <kbd>Enter</kbd>(次へ)・<kbd>Shift</kbd>+<kbd>Enter</kbd>(前へ)。見つかった件数も表示されます。</li>
+  <li>置換 <kbd>Ctrl</kbd>+<kbd>H</kbd>:「置換」で1件ずつ、「すべて置換」でまとめて置き換えます。すべて置換も <kbd>Ctrl</kbd>+<kbd>Z</kbd> で元に戻せます。</li>
+  <li>行へ移動 <kbd>Ctrl</kbd>+<kbd>G</kbd>、日付と時刻を挿入 <kbd>F5</kbd></li>
+</ul>
+<div class="note"><kbd>F5</kbd> はこのアプリでは「日付と時刻の挿入」です。ページの再読み込みにはなりません。</div>
+
+<h3 id="view">3-4. 表示・印刷</h3>
+<ul>
+  <li>拡大・縮小:<kbd>Ctrl</kbd>+<kbd>+</kbd> / <kbd>Ctrl</kbd>+<kbd>-</kbd>(<kbd>Ctrl</kbd>+マウスホイールでも可)、元に戻す <kbd>Ctrl</kbd>+<kbd>0</kbd></li>
+  <li>右端で折り返す・ステータスバーの表示:「表示」メニュー</li>
+  <li>ダークモード:右上の 🌙 / ☀ ボタン</li>
+  <li>印刷:ファイル → 印刷(<kbd>Ctrl</kbd>+<kbd>P</kbd>)。本文だけが印刷されます。</li>
+</ul>
+<p>画面下のステータスバーには、カーソルの位置(行・列)、文字数(改行を除く)、保存状態、倍率、改行コード、文字コードが表示されます。</p>
+<p>ブラウザのタブ見出しには、ファイル名(無題の場合は1行目の冒頭)が表示されます。先頭の「●」は、まだ保存していない変更があるという意味です。</p>
+
+<h2 id="autosave">4. 一時保存と復元</h2>
+<p>書いている内容は、数秒ごとにブラウザの中へ自動で一時保存されます。ブラウザが突然閉じても、次に開いたとき「書きかけの内容があります」と表示され、「復元する」で続きから書けます。</p>
+<div class="note">
+  <strong>一時保存はあくまで保険です。大切な文章は必ず「保存」でファイルにしてください。</strong><br>
+  会社のPCなどで「ブラウザを閉じると閲覧データを消す」設定になっていると、一時保存も消えます。この場合、起動時に注意のメッセージが表示されます。<br>
+  Edgeでは、アドレスバーに <code>edge://policy</code> と入力すると会社の設定を確認できます。「ClearBrowsingDataOnExit」が「true」なら、閉じると消える設定です。
+</div>
+<p>復元した内容は、元のファイルとのつながりが外れています。「名前を付けて保存」で保存し直してください。</p>
+
+<h2 id="tabs">5. 複数タブで使うとき</h2>
+<ul>
+  <li>アプリを複数のタブで開いて、別々の文章を書けます。一時保存もタブごとに分かれています。</li>
+  <li>タブ見出しにはファイル名(無題なら1行目の冒頭)が出るので、どのタブがどの文章か見分けられます。</li>
+  <li>同じファイルを2つのタブで開くと「別のタブでも開かれています」と警告が出ます。後から保存した方の内容で上書きされるので注意してください。</li>
+  <li>タブを閉じた後の書きかけは、次にアプリを開いたタブで「復元する」を案内します(複数あるときは新しいものから順番に案内します)。</li>
+</ul>
+
+<h2 id="keys">6. ショートカット一覧</h2>
+<table>
+  <tr><th>キー</th><th>動作</th><th>キー</th><th>動作</th></tr>
+  <tr><td><kbd>Alt</kbd>+<kbd>N</kbd></td><td>新規</td><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>検索</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>開く</td><td><kbd>F3</kbd> / <kbd>Shift</kbd>+<kbd>F3</kbd></td><td>次を検索 / 前を検索</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd></td><td>最近使ったファイル</td><td><kbd>Ctrl</kbd>+<kbd>H</kbd></td><td>置換</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>上書き保存</td><td><kbd>Ctrl</kbd>+<kbd>G</kbd></td><td>行へ移動</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></td><td>名前を付けて保存</td><td><kbd>F5</kbd></td><td>日付と時刻を挿入</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>印刷</td><td><kbd>Ctrl</kbd>+<kbd>+</kbd> / <kbd>-</kbd> / <kbd>0</kbd></td><td>拡大 / 縮小 / 元に戻す</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Y</kbd></td><td>元に戻す / やり直し</td><td><kbd>Esc</kbd></td><td>検索バーやダイアログを閉じる</td></tr>
+</table>
+<div class="note">新規作成は <kbd>Ctrl</kbd>+<kbd>N</kbd> ではなく <kbd>Alt</kbd>+<kbd>N</kbd> です。<kbd>Ctrl</kbd>+<kbd>N</kbd> はブラウザ自身の「新しいウィンドウ」に使われていて、アプリ側では受け取れないためです。</div>
+
+<h2 id="settings">7. 設定</h2>
+<p>右上の「⚙ 設定」から開きます。</p>
+<table>
+  <tr><th>項目</th><th>内容</th></tr>
+  <tr><td>テーマ</td><td>ライト / ダーク / システム設定に従う</td></tr>
+  <tr><td>右端で折り返す</td><td>長い行を画面の幅で折り返します</td></tr>
+  <tr><td>文字の大きさ</td><td>文字の基本サイズ</td></tr>
+  <tr><td>自動保存(一時保存)</td><td>オフにすると一時保存をしません(閉じると書きかけは消えます)</td></tr>
+  <tr><td>保存時の改行コード</td><td>新しく作ったファイルの改行形式。Windowsで使うなら「Windows (CRLF)」のままで大丈夫です</td></tr>
+  <tr><td>この環境の状態</td><td>保存方式・データ保護・オフライン機能が使えるかを表示します</td></tr>
+  <tr><td>エラーログ</td><td>発生したエラーの記録(<a href="#errorlog">10章</a>)</td></tr>
+  <tr><td>ヘルプ</td><td>この取扱説明書を開きます</td></tr>
+</table>
+
+<h2 id="update">8. アプリの更新</h2>
+<p>新しい版が公開されると、画面上部に緑色で「新しいバージョンがあります」と表示されます。「今すぐ更新」を押すと、書きかけの内容を保ったまま新しい版に切り替わります。「あとで」を押した場合は、次に開いたときにまた案内されます。</p>
+<p>更新の確認にはインターネット接続が必要です。オフラインのときは、今の版のまま使えます。</p>
+
+<h2 id="trouble">9. 困ったとき</h2>
+<table>
+  <tr><th>症状</th><th>対処</th></tr>
+  <tr><td>保存するとダウンロードフォルダに入ってしまう</td><td>会社の設定でファイルへの直接保存が禁止されているか、古いブラウザの可能性があります。ダウンロードされたファイルを目的のフォルダに移してください。</td></tr>
+  <tr><td>オフラインで開けない</td><td>一度もインターネット接続中に開いていないか、ブラウザのデータが消去された可能性があります。ネットにつながった状態で一度開いてください。</td></tr>
+  <tr><td>書きかけが復元されない</td><td>ブラウザを閉じるとデータが消える設定の可能性があります(<a href="#autosave">4章</a>)。こまめにファイルへ保存してください。</td></tr>
+  <tr><td>文字化けする</td><td>UTF-8・UTF-16・Shift_JIS 以外の文字コード(EUC-JPなど)には対応していません。</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>N</kbd>で新しいウィンドウが開く</td><td>新規作成は <kbd>Alt</kbd>+<kbd>N</kbd> です。</td></tr>
+  <tr><td>「最近使ったファイル」から開けない</td><td>ファイルが移動・削除されたか、アクセスの許可がされていません。「開く」から選び直してください。</td></tr>
+</table>
+
+<h2 id="errorlog">10. エラーログ</h2>
+<p>アプリの使用中にエラーが起きると、その場で通知するとともに記録します(最大50件)。次にアプリを開いたとき、前回のエラーがあれば画面上部に赤いメッセージで知らせます。「ログを見る」または「設定 → エラーログ」で内容を確認できます。不具合を報告するときは、この内容を伝えてください。</p>
+
+<h2 id="history">11. 更新履歴</h2>
+<table>
+  <tr><th>バージョン</th><th>日付</th><th>内容</th></tr>
+  <tr><td>検討中(ver未確定)</td><td>2026-11-18</td><td>初版の試作。メモ帳の基本機能、オフライン対応、一時保存と復元(タブ別・IndexedDB)、最近使ったファイル、同じファイルの複数タブ警告・上書き前の変更確認、更新の通知、ドラッグ&ドロップ、印刷、エラーログ。</td></tr>
+</table>
+</main>
+<script>
+  const body = document.body, KEY = 'np.manual.collapsed';
+  try { if (localStorage.getItem(KEY) === '1') body.classList.add('collapsed'); } catch(e){}
+  document.getElementById('toggle').addEventListener('click', () => {
+    if (matchMedia('(max-width:700px)').matches) { body.classList.toggle('open'); return; }
+    body.classList.toggle('collapsed');
+    try { localStorage.setItem(KEY, body.classList.contains('collapsed') ? '1' : '0'); } catch(e){}
+  });
+  document.querySelectorAll('#toc a').forEach(a => a.addEventListener('click', () => body.classList.remove('open')));
+  const links = [...document.querySelectorAll('#toc a')];
+  const io = new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting) {
+    links.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + en.target.id)); } }), { rootMargin: '0px 0px -70% 0px' });
+  document.querySelectorAll('main h2[id], main h3[id]').forEach(h => io.observe(h));
+</script>
+</body>
+</html>
