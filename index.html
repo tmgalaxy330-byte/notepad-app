@@ -415,7 +415,7 @@
   heartbeat(); setInterval(heartbeat, 4000);
 
   /* ================= 状態・設定 ================= */
-  const state = { zoom:100, pending:null, updating:false };
+  const state = { zoom:100, pending:null, pendingDoc:null, updating:false };
   const defaults = { theme:'light', wrap:true, font:16, autosave:true, eol:'CRLF', status:true };
   let settings = Object.assign({}, defaults);
   try { Object.assign(settings, JSON.parse(store.get(K.settings) || '{}')); } catch(e){}
@@ -506,6 +506,8 @@
         d.changed = false;
         await idb.put('drafts', draftKey(d), { text: d.ta.value, name: d.fileName, eol: d.eol, t: new Date().toISOString() });
         d.draftSaved = true; quotaWarned = false;
+        // 書き込みの間にタブが閉じられた・保存された場合は、残った一時保存を消す(閉じたはずの文章が復元候補に出ないように)
+        if (!docs.includes(d) || !d.dirty) { await idb.del('drafts', draftKey(d)); d.draftSaved = false; }
       } catch(e){
         d.changed = true;
         if (e && e.name === 'QuotaExceededError') {
@@ -657,11 +659,21 @@
     deleteOwnDraft();
     updateTitle(); updateStatus(); ed.focus();
   }
+  function takePending(){
+    const r = { next: state.pending, doc: state.pendingDoc && docs.includes(state.pendingDoc) ? state.pendingDoc : null };
+    state.pending = null; state.pendingDoc = null; return r;
+  }
   function guardUnsaved(next){
     if (!D.dirty) { next(); return; }
-    state.pending = next;
+    state.pending = next; state.pendingDoc = D;
     $('confirmMsg').textContent = `「${D.fileName || headLabel(ed.value, 20)}」への変更内容を保存しますか?`;
     openDlg('confirmDlg');
+  }
+  // 先頭部分に NUL(0x00)があればテキストではないと判断する(UTF-16 は BOM があれば除外)
+  function looksBinary(buf){
+    const b = new Uint8Array(buf, 0, Math.min(buf.byteLength, 8192));
+    if ((b[0]===0xFF && b[1]===0xFE) || (b[0]===0xFE && b[1]===0xFF)) return false;
+    return b.includes(0);
   }
   function decode(buf){
     const bytes = new Uint8Array(buf);
@@ -676,6 +688,10 @@
   async function loadBuffer(buf, name, handle, lastModified){
     const already = await findDocByHandle(handle);
     if (already) { activate(already); toast(`「${already.fileName}」はすでに開いています`); return; }
+    if (looksBinary(buf)) {
+      showWarn(`「${name}」はテキストファイルではないため開けません(Excel・Word・画像などは開けません)。Excelの内容を使いたいときは、Excelでセルをコピーしてこのアプリに貼り付けてください。`);
+      return;
+    }
     const { text, enc } = decode(buf);
     const eol = /\r\n/.test(text) ? 'CRLF' : (/\n/.test(text) ? 'LF' : settings.eol);
     activate(tabForOpen());
@@ -844,6 +860,7 @@
   document.addEventListener('drop', e => {
     if (!hasFiles(e)) return;
     e.preventDefault(); dragDepth = 0; $('dropzone').classList.remove('show');
+    if (document.querySelector('.overlay.show')) { toast('ダイアログを閉じてから、もう一度ドロップしてください'); return; }
     const item = e.dataTransfer.items && e.dataTransfer.items[0];
     const file = e.dataTransfer.files[0];
     if (!file) return;
@@ -956,7 +973,7 @@
     redo: () => { ed.focus(); document.execCommand('redo'); },
     find: () => openFind(false),
     replace: () => openFind(true),
-    toggleReplaceRow: () => $('findbar').classList.toggle('replace'),
+    toggleReplaceRow: () => { const on = $('findbar').classList.toggle('replace'); if (on) $('replaceInput').focus(); },
     closeFind: () => { $('findbar').classList.remove('show'); ed.focus(); },
     findNext: () => find(1), findPrev: () => find(-1),
     replaceOne, replaceAll,
@@ -1008,9 +1025,10 @@
       try { if (currentOffer) await idb.del('drafts', currentOffer); } catch(e){ logError('一時保存の破棄', e); }
       toast('一時保存を破棄しました'); offerDrafts(); ed.focus();
     },
-    confirmSave: async () => { closeDlg('confirmDlg'); const ok = await save(false); const p = state.pending; state.pending = null; if (ok && p) p(); },
-    confirmDiscard: () => { closeDlg('confirmDlg'); D.dirty = false; deleteOwnDraft(); const p = state.pending; state.pending = null; if (p) p(); },
-    confirmCancel: () => { closeDlg('confirmDlg'); state.pending = null; ed.focus(); },
+    // 確認の対象は、ダイアログを出したときのタブ(表示中のタブが変わっていても取り違えない)
+    confirmSave: async () => { closeDlg('confirmDlg'); const d = takePending(); if (!d.doc) return; activate(d.doc); const ok = await save(false); if (ok && d.next) d.next(); },
+    confirmDiscard: () => { closeDlg('confirmDlg'); const d = takePending(); if (!d.doc) return; d.doc.dirty = false; deleteDraft(d.doc); if (d.next) d.next(); },
+    confirmCancel: () => { closeDlg('confirmDlg'); takePending(); if (ed) ed.focus(); },
     askOk: () => answerAsk(true), askCancel: () => answerAsk(false)
   };
   document.addEventListener('click', e => {
@@ -1102,6 +1120,7 @@
       if ($('findbar').classList.contains('show')) actions.closeFind();
       closeMenus(); return;
     }
+    if (document.querySelector('.overlay.show')) return; // ダイアログ表示中は、裏の文書を操作するショートカットを無効にする
     if (e.key === 'F3') return run(e.shiftKey ? 'findPrev' : 'findNext');
     if (e.key === 'F5' && !c) return run('timestamp');
     // Ctrl+N はChromeが新しいウィンドウ用に予約しておりページでは受け取れないため Alt+N を使う

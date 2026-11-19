@@ -2,7 +2,7 @@
  * 新しい版を公開するときは、必ず CACHE_VERSION を変更すること。
  * 変更しないと、利用者の端末に更新が届かない。
  */
-const CACHE_VERSION = 'draft-2026-11-19-1';
+const CACHE_VERSION = 'draft-2026-11-19-2';
 const CACHE = 'notepad-' + CACHE_VERSION;
 const ASSETS = [
   './',
@@ -18,7 +18,9 @@ const ASSETS = [
 
 self.addEventListener('install', event => {
   // 自動では切り替えない(画面側の「今すぐ更新」で切り替える)
-  event.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
+  // ブラウザの通常キャッシュ(GitHub Pages は最大10分)を通さず、必ず最新のファイルを取りに行く。
+  // 通すと、更新直後に古い index.html が新しい版としてキャッシュされることがある。
+  event.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS.map(u => new Request(u, { cache: 'reload' })))));
 });
 
 self.addEventListener('activate', event => {
