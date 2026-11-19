@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
 <meta name="theme-color" content="#005fb8">
 <meta name="description" content="M’s Jotter(エムズ・ジョッター):Windowsのメモ帳のように使える、オフライン対応の下書きツール">
 <meta name="application-name" content="M’s Jotter">
@@ -30,7 +30,7 @@
     --shadow:0 8px 24px rgba(0,0,0,.5);
   }
   *{box-sizing:border-box}
-  html,body{height:100%;margin:0}
+  html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none}
   body{background:var(--bg);color:var(--text);font-family:"Segoe UI","Yu Gothic UI","Meiryo",sans-serif;font-size:14px;display:flex;flex-direction:column;overflow:hidden}
   button{font:inherit;color:inherit}
 
@@ -102,7 +102,13 @@
   .gutter-inner b{color:var(--text);font-weight:600}
   /* 書式ツールバー */
   .fmtbar{display:flex;align-items:center;gap:2px;padding:2px 8px 4px;background:var(--bg);flex-wrap:wrap;position:relative}
-  .fmtbar.hide{display:none}
+  .fmtbar.hide,.fmtbar.collapsed{display:none}
+  /* ピンを外したとき:「書式 ▾」を押すと本文の上に重ねて表示する */
+  .fmtbar.floating{position:fixed;left:8px;right:8px;z-index:60;box-shadow:var(--shadow);border:1px solid var(--tab-border);border-radius:0 0 8px 8px;padding-top:4px}
+  .fb.pin{margin-left:2px;display:flex;align-items:center;justify-content:center}
+  .fb.pin.on{color:var(--accent)}
+  .fb.pin:not(.on) svg{transform:rotate(45deg)}
+  .fmt-show.open{background:var(--hover)}
   .fb{background:none;border:1px solid transparent;border-radius:6px;padding:3px 9px;cursor:pointer;min-width:30px;line-height:20px}
   .fb:hover,.fmtbar .menu.open > .fb{background:var(--hover);border-color:var(--border)}
   .fmtbar .menu > button.fb{padding:3px 9px}
@@ -256,10 +262,12 @@
       <hr>
       <button data-act="toggleWrap" class="check" id="mWrap">右端で折り返す</button>
       <button data-act="toggleFmtBar" class="check on" id="mFmtBar">書式ツールバー</button>
+      <button data-act="toggleFmtPin" class="check on" id="mFmtPin">書式ツールバーを常に表示(ピン留め)<span class="kbd">Ctrl+F1</span></button>
       <button data-act="toggleLineNo" class="check" id="mLineNo">行番号</button>
       <button data-act="toggleStatus" class="check on" id="mStatus">ステータスバー</button>
     </div>
   </div>
+  <button class="icon-btn fmt-show" data-act="showFmtBar" id="fmtShowBtn" title="書式ツールバーを表示 (Ctrl+F1 で常に表示)" hidden>書式 ▾</button>
   <div class="spacer"></div>
   <button class="icon-btn" data-act="toggleTheme" title="ダークモード切替" id="themeBtn">🌙</button>
   <button class="icon-btn" data-act="settings" title="設定">⚙ 設定</button>
@@ -297,6 +305,7 @@
     <button data-act="viewEdit" id="vEdit" title="記号のまま表示して編集">編集</button><button data-act="viewSplit" id="vSplit" title="左で編集、右に書式表示">分割</button><button data-act="viewFormat" id="vFormat" title="書式を付けて表示(読み取り専用)">書式</button>
   </div>
   <button class="fb" data-act="copyFormatted" title="Outlook・Word・Teams などに、書式付きで貼り付けられるようにコピー">書式付きでコピー</button>
+  <button class="fb pin on" data-act="toggleFmtPin" id="fbPin" title="ピン留め中(常に表示)。押すとピンを外して最小化します (Ctrl+F1)" aria-label="ツールバーのピン留め" aria-pressed="true"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M10.6 1.3a1 1 0 0 1 1.4 0l2.7 2.7a1 1 0 0 1 0 1.4l-.9.9a1 1 0 0 1-1.1.2l-2 2 .4 2.6a1 1 0 0 1-.3.9l-.7.7a.8.8 0 0 1-1.1 0L6.6 10.3 2.8 14.1a.6.6 0 0 1-.9-.9l3.8-3.8-2.4-2.4a.8.8 0 0 1 0-1.1l.7-.7a1 1 0 0 1 .9-.3l2.6.4 2-2a1 1 0 0 1 .2-1.1z"/></svg></button>
 </div>
 
 <div class="banner ok" id="updateBanner"><span class="msg">新しいバージョンがあります。更新すると書きかけの内容は自動で引き継がれます。</span><button data-act="applyUpdate">今すぐ更新</button><button data-act="dismissUpdate">あとで</button></div>
@@ -661,7 +670,7 @@
 
   /* ================= 状態・設定 ================= */
   const state = { zoom:100, updating:false };
-  const defaults = { theme:'light', wrap:true, font:16, autosave:true, eol:'CRLF', enc:'UTF-8', status:true, restoreTabs:true, lineNo:false, fontFamily:'auto', fmtBar:true, view:'edit' };
+  const defaults = { theme:'light', wrap:true, font:16, autosave:true, eol:'CRLF', enc:'UTF-8', status:true, restoreTabs:true, lineNo:false, fontFamily:'auto', fmtBar:true, fmtPin:true, view:'edit' };
   let settings = Object.assign({}, defaults);
   try { Object.assign(settings, JSON.parse(store.get(K.settings) || '{}')); } catch(e){}
   const saveSettings = () => store.set(K.settings, JSON.stringify(settings));
@@ -828,7 +837,7 @@
     ta.style.fontSize = (settings.font * state.zoom / 100) + 'px';
   }
   function applySettings(){
-    $('fmtbar').classList.toggle('hide', !settings.fmtBar);
+    applyFmtBar();
     $('mFmtBar').classList.toggle('on', settings.fmtBar);
     applyView();
     document.documentElement.style.setProperty('--editor-font', fontCss(settings.fontFamily));
@@ -1532,6 +1541,30 @@
   $('preview').addEventListener('dblclick', () => { if (settings.view === 'format') setView('split'); });
   $('preview').addEventListener('keydown', e => { if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { ensureEditable(); ed.focus(); } });
 
+  /* ---- 書式ツールバーの表示(常に表示/ピンを外して最小化) ---- */
+  let fmtPeek = false; // ピンを外しているときに、一時的に開いているか
+  function applyFmtBar(){
+    const fb = $('fmtbar'), pinned = settings.fmtPin !== false, on = settings.fmtBar;
+    const peek = on && !pinned && fmtPeek;
+    fb.classList.toggle('hide', !on);
+    fb.classList.toggle('collapsed', on && !pinned && !peek);
+    fb.classList.toggle('floating', peek);
+    if (peek) fb.style.top = Math.round($('menubar').getBoundingClientRect().bottom) + 'px'; else fb.style.top = '';
+    const btn = $('fmtShowBtn'); btn.hidden = !(on && !pinned); btn.classList.toggle('open', peek); btn.textContent = peek ? '書式 ▴' : '書式 ▾';
+    const pin = $('fbPin'); pin.classList.toggle('on', pinned); pin.setAttribute('aria-pressed', String(pinned));
+    pin.title = pinned ? 'ピン留め中(常に表示)。押すとピンを外して最小化します (Ctrl+F1)' : 'ピン留めして常に表示します (Ctrl+F1)';
+    $('mFmtPin').classList.toggle('on', on && pinned);
+  }
+  // 一時的に開いたツールバーは、本文など他の場所をクリックすると閉じる
+  document.addEventListener('mousedown', e => {
+    if (!fmtPeek || e.target.closest('#fmtbar') || e.target.closest('#fmtShowBtn') || e.target.closest('.overlay')) return;
+    fmtPeek = false; applyFmtBar();
+  });
+  window.addEventListener('resize', () => { if (fmtPeek) applyFmtBar(); });
+  // 画面がずれて上部のタブ・メニュー・ツールバーが隠れないようにする(入力位置へのスクロールで文書全体が動くのを戻す)
+  window.addEventListener('scroll', () => { if (scrollX || scrollY) scrollTo(0, 0); });
+  document.body.addEventListener('scroll', () => { if (document.body.scrollTop) document.body.scrollTop = 0; });
+
   /* ---- ツールバーの操作(選んだ範囲・行に記号を付ける/外す) ---- */
   function lineRange(){
     const v = ed.value; const a = ed.selectionStart; let b = ed.selectionEnd;
@@ -1993,7 +2026,10 @@
     dismissTable: () => { $('tableBanner').classList.remove('show'); lastTablePaste = null; },
     viewEdit: () => setView('edit'), viewSplit: () => setView('split'), viewFormat: () => setView('format'),
     copyFormatted,
-    toggleFmtBar: () => { settings.fmtBar = !settings.fmtBar; saveSettings(); applySettings(); },
+    toggleFmtBar: () => { settings.fmtBar = !settings.fmtBar; fmtPeek = false; saveSettings(); applySettings(); },
+    toggleFmtPin: () => { settings.fmtPin = !settings.fmtPin; fmtPeek = false; settings.fmtBar = true; saveSettings(); applySettings();
+      toast(settings.fmtPin ? '書式ツールバーを常に表示します(ピン留め)' : '書式ツールバーを最小化しました。使うときはメニューの「書式 ▾」を押してください'); },
+    showFmtBar: () => { fmtPeek = !fmtPeek; applyFmtBar(); },
     fontDlg: openFontDlg, applyFont, loadLocalFonts, closeFont: () => closeDlg('fontDlg'),
     pasteDiag: openPasteDiag, closeDiag: () => closeDlg('pasteDiagDlg'),
     copyDiag: () => { const r = document.createRange(); r.selectNodeContents($('diagOut')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
@@ -2218,11 +2254,13 @@
       if ($('askDlg').classList.contains('show')) return run('askCancel');
       if ($('confirmDlg').classList.contains('show')) return run('confirmCancel');
       closeTabMenu();
+      if (fmtPeek) { fmtPeek = false; applyFmtBar(); }
       ['gotoDlg','settingsDlg','recentDlg','encDlg','draftsDlg','snipDlg','pasteDiagDlg','fontDlg','linkDlg','tableDlg'].forEach(closeDlg);
       if ($('findbar').classList.contains('show')) actions.closeFind();
       closeMenus(); return;
     }
     if (document.querySelector('.overlay.show')) return; // ダイアログ表示中は、裏の文書を操作するショートカットを無効にする
+    if (e.key === 'F1' && c) return run('toggleFmtPin');
     if (e.key === 'F3') return run(e.shiftKey ? 'findPrev' : 'findNext');
     if (e.key === 'F5' && !c) { ensureEditable(); return run('timestamp'); }
     // Ctrl+N はChromeが新しいウィンドウ用に予約しておりページでは受け取れないため Alt+N を使う

@@ -2,7 +2,7 @@
  * 新しい版を公開するときは、必ず CACHE_VERSION を変更すること。
  * 変更しないと、利用者の端末に更新が届かない。
  */
-const CACHE_VERSION = 'draft-2026-11-19-6';
+const CACHE_VERSION = 'draft-2026-11-19-7';
 const CACHE = 'notepad-' + CACHE_VERSION;
 const ASSETS = [
   './',
