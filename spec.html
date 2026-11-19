@@ -77,7 +77,7 @@
 <ul>
 <li>ファイルへの直接保存(File System Access API)はChromium系(Edge / Chrome、Chrome Android 132以降)のみ。非対応・会社ポリシーで禁止(DefaultFileSystemWriteGuardSetting 等)の場合はダウンロード保存に自動で切り替える。</li>
 <li>Service Worker は https または localhost でのみ動作する。file:// で開いた場合はオフライン機能なし。</li>
-<li>Chrome は <kbd>Ctrl</kbd>+<kbd>N</kbd>/<kbd>T</kbd>/<kbd>W</kbd> をページに渡さないため、新規作成は <kbd>Alt</kbd>+<kbd>N</kbd> とする。</li>
+<li>Chrome は <kbd>Ctrl</kbd>+<kbd>N</kbd>/<kbd>T</kbd>/<kbd>W</kbd> をページに渡さないため、新しいタブは <kbd>Alt</kbd>+<kbd>N</kbd>、タブを閉じるは <kbd>Alt</kbd>+<kbd>W</kbd>、タブ切り替えは <kbd>Alt</kbd>+<kbd>1</kbd>~<kbd>9</kbd> とする(<kbd>Ctrl</kbd>+<kbd>Tab</kbd> もブラウザが使うため使わない)。</li>
 <li>保存時の文字コードは UTF-8(BOMなし)固定。TextEncoder が UTF-8 のみ対応のため。読込は UTF-8 / UTF-8(BOM) / UTF-16 LE・BE(BOM付き) / Shift_JIS(UTF-8として不正な場合)。</li>
 <li>会社ポリシー ClearBrowsingDataOnExit 有効時は、閉じると一時保存・キャッシュが消える。検知は不可能なため、初回起動と同じ扱いで注意を表示する。</li>
 </ul>
@@ -96,19 +96,39 @@
 <h2 id="arch">5. 構成と処理の流れ</h2>
 <h3>起動時</h3>
 <ol>
-<li>設定(localStorage)を読み込み、テーマ等を反映</li>
+<li>空のタブ(文書)を1つ作り、設定(localStorage)を読み込んでテーマ等を反映</li>
 <li>未確認のエラーログがあれば赤バナーで通知</li>
 <li>一時保存(IndexedDB)から復元候補を探し、あれば青バナーで案内。なく、かつ訪問記録もなければ「初回またはデータ消去の可能性」を黄バナーで表示</li>
 <li>Service Worker を登録、persist() を要求</li>
 </ol>
-<h3>主な状態(state)</h3>
+<h3>タブ(文書)</h3>
+<p>文書は配列 <code>docs</code> で管理し、表示中の文書を <code>D</code>、その入力欄を <code>ed</code> とする。文書ごとに専用の textarea を持ち、表示中以外は hidden にする(ブラウザ標準の「元に戻す」履歴をタブごとに保つため)。</p>
+<ul>
+<li>新しいタブ:textarea とタブ見出しを作り、表示を切り替える。</li>
+<li>開く(ファイル・最近使ったファイル・D&D):同じファイル(isSameEntry)を開いているタブがあればそこへ切り替える。なければ、表示中のタブが白紙(無題・未変更・空)ならそれを使い、そうでなければ新しいタブで開く。</li>
+<li>閉じる:未保存なら保存確認(保存/保存しない/キャンセル)。最後の1枚を閉じたら白紙のタブを1つ作る。</li>
+<li>画面ごと閉じる(beforeunload):未保存のタブが1つでもあれば確認する。</li>
+</ul>
+<h3>文書ごとの状態</h3>
 <table>
 <tr><th>名前</th><th>内容</th></tr>
+<tr><td>id / ta / tabEl</td><td>文書ID、入力欄(textarea)、タブ見出しの要素</td></tr>
 <tr><td>fileName / handle</td><td>開いているファイル名と、ファイル参照(FileSystemFileHandle。ダウンロード方式では null)</td></tr>
 <tr><td>lastModified</td><td>開いた/保存した時点のファイル更新時刻(競合検知に使用)</td></tr>
 <tr><td>dirty</td><td>未保存の変更があるか</td></tr>
 <tr><td>eol / enc</td><td>改行コード(CRLF/LF)、読み込んだ文字コード</td></tr>
+<tr><td>changed / draftSaved</td><td>前回の一時保存以降に変更があるか、一時保存が存在するか(変更のない文書は書き直さない)</td></tr>
 </table>
+<p>画面全体の状態(state)は zoom(倍率)、pending(保存確認後に続ける処理)、updating(更新中)のみ。</p>
+<h3>貼り付け</h3>
+<ul>
+<li>document の paste で処理する。入力欄で text/plain がある通常の貼り付けはブラウザに任せる(元に戻すが効く)。</li>
+<li>フォーカスが入力欄以外(ボタン・メニュー・本文外)にあるときも、表示中のタブに貼り付ける。検索欄・ダイアログ内の入力欄は通常どおり。</li>
+<li>text/plain が空で text/html があれば、文字だけを取り出す(表はセルをタブ、行を改行で区切る)。</li>
+<li>文字が何もなければ、クリップボードの形式名と考えられる原因を黄バナーで表示する。</li>
+<li>ボタン操作の後は入力欄にフォーカスを戻す(ダイアログ表示中・検索欄などの入力中を除く)。</li>
+<li>「編集 → 貼り付け」は navigator.clipboard.readText を使う。許可されない環境では Ctrl+V を案内する。</li>
+</ul>
 
 <h2 id="storage">6. データ保存設計</h2>
 <table>
@@ -118,10 +138,10 @@
 <tr><td>localStorage</td><td>np.alive.&lt;tabId&gt;</td><td>タブの生存記録(4秒ごと更新、pagehideで削除、3分で失効、1日で掃除)</td></tr>
 <tr><td>localStorage</td><td>np.visited</td><td>訪問済みの印</td></tr>
 <tr><td>sessionStorage</td><td>np.tabId</td><td>タブ識別子(再読み込みでは維持。タブ複製時は新規発行)</td></tr>
-<tr><td>IndexedDB notepad-db / drafts</td><td>tabId</td><td>一時保存 {text, name, eol, t}。入力停止1.5秒後、画面が隠れたとき、閉じるときに書き込み。保存・新規・破棄で削除</td></tr>
+<tr><td>IndexedDB notepad-db / drafts</td><td>tabId:文書ID</td><td>一時保存 {text, name, eol, t}。文書(アプリ内タブ)ごとに1件。入力停止1.5秒後、画面が隠れたとき、閉じるときに書き込み。保存・タブを閉じる・破棄で削除。旧形式のキー(tabId のみ)も復元対象として扱う</td></tr>
 <tr><td>IndexedDB notepad-db / recent</td><td>時刻+乱数</td><td>最近使ったファイル {handle, name, t}。最大10件、同じファイルは isSameEntry で重複排除</td></tr>
 </table>
-<p>復元候補:自タブの分は起動時のみ、他タブの分は生存記録が失効しているもののみ。新しい順に1件ずつ案内する。IndexedDB が使えない場合はメモリに退避し、警告を表示する。</p>
+<p>復元候補:今開いている文書の分は除く。自ブラウザタブの分は起動時(再読み込み)の案内が終わるまで、他ブラウザタブの分は生存記録が失効しているもののみ。新しい順に1件ずつ案内し、2件以上なら「すべて復元」も表示する。復元は新しいタブ(白紙のタブがあれば再利用)に行い、新しいキーで一時保存を書いてから元のキーを削除する。IndexedDB が使えない場合はメモリに退避し、警告を表示する。</p>
 
 <h2 id="fileio">7. ファイル入出力</h2>
 <ul>
@@ -134,26 +154,29 @@
 <h2 id="conflict">8. 競合の検知</h2>
 <ul>
 <li><strong>上書き前の確認</strong>:保存直前に getFile().lastModified を取得し、state.lastModified より新しければ確認ダイアログを出す。</li>
-<li><strong>複数タブ</strong>:BroadcastChannel「notepad-sync」でファイル参照を送り、isSameEntry で同じファイルか判定する。opened(開いた)→ 相手が alsoOpen で応答し、双方に警告。saved(保存した)→ 同じファイルを開いている他のタブに警告。</li>
+<li><strong>アプリ内のタブ</strong>:同じファイルを開こうとしたら、既存のタブに切り替える(2つ目は開かない)。</li>
+<li><strong>ブラウザの複数タブ・ウィンドウ</strong>:BroadcastChannel「notepad-sync」でファイル参照とファイル名を送り、受信側はアプリ内の全タブと isSameEntry で比較する。opened(開いた)→ 相手が alsoOpen で応答し、双方に警告。saved(保存した)→ 同じファイルを開いている他のブラウザタブに警告。</li>
 </ul>
 
 <h2 id="sw">9. オフライン・更新</h2>
 <ul>
 <li>install でアプリの全ファイル(取扱説明書・本書を含む)をキャッシュ。読み込みはキャッシュ優先。キャッシュにない画面はネットから取得し、オフラインで取得できない場合のみ index.html を返す。</li>
-<li>新しい sw.js を検知すると waiting 状態で待機し、画面に「新しいバージョンがあります」を表示。「今すぐ更新」で一時保存を書き込み → SKIP_WAITING → controllerchange で再読み込み → 自タブの書きかけを復元案内。</li>
+<li>新しい sw.js を検知すると waiting 状態で待機し、画面に「新しいバージョンがあります」を表示。「今すぐ更新」で全タブの一時保存を書き込み → SKIP_WAITING → controllerchange で再読み込み → 自ブラウザタブの書きかけを復元案内(「すべて復元」でまとめて戻せる)。</li>
 <li>1時間ごとに更新を確認する。</li>
 </ul>
 
 <h2 id="ui">10. 画面仕様</h2>
 <ul>
-<li>構成:タイトル行/メニュー(ファイル・編集・表示)/通知バナー(更新・エラー・復元・注意)/検索バー/本文/ステータスバー</li>
-<li>タブ見出し:「● 」(未保存時)+ ファイル名。無題は「無題: 1行目の冒頭20文字…」</li>
+<li>構成:タブ列(アイコン・タブ・「+」)/メニュー(ファイル・編集・表示)/通知バナー(更新・エラー・復元・注意)/検索バー/本文/ステータスバー</li>
+<li>アプリ内タブの見出し:「● 」(未保存時)+ ファイル名。無題は「無題: 1行目の冒頭20文字…」。✕で閉じる。多いときは横スクロール。画面幅600px以下では幅を狭くする。</li>
+<li>ブラウザのタブ見出し:表示中の文書の見出し+「(他 n タブ・未保存 m)」</li>
+<li>編集メニュー:元に戻す・やり直し/切り取り・コピー・貼り付け/検索・置換・行へ移動/すべて選択・日付と時刻</li>
 <li>ステータスバー:行・列、文字数(改行を除く、サロゲートペアは1文字)、保存状態、倍率、改行コード、文字コード。画面幅600px以下では後半3項目を隠す。</li>
 <li>テーマ:ライト/ダーク/システム。Windows 11メモ帳に近い配色。</li>
 </ul>
 
 <h2 id="keys">11. ショートカット</h2>
-<p>取扱説明書6章と同じ。新規 <kbd>Alt</kbd>+<kbd>N</kbd>、開く <kbd>Ctrl</kbd>+<kbd>O</kbd>、最近 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>、保存 <kbd>Ctrl</kbd>+<kbd>S</kbd>、名前を付けて <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>、印刷 <kbd>Ctrl</kbd>+<kbd>P</kbd>、検索 <kbd>Ctrl</kbd>+<kbd>F</kbd>/<kbd>F3</kbd>、置換 <kbd>Ctrl</kbd>+<kbd>H</kbd>、行移動 <kbd>Ctrl</kbd>+<kbd>G</kbd>、日時 <kbd>F5</kbd>、ズーム <kbd>Ctrl</kbd>+<kbd>+</kbd>/<kbd>-</kbd>/<kbd>0</kbd>。</p>
+<p>取扱説明書6章と同じ。新しいタブ <kbd>Alt</kbd>+<kbd>N</kbd>、タブを閉じる <kbd>Alt</kbd>+<kbd>W</kbd>、タブ切り替え <kbd>Alt</kbd>+<kbd>1</kbd>~<kbd>9</kbd>、開く <kbd>Ctrl</kbd>+<kbd>O</kbd>、最近 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>、保存 <kbd>Ctrl</kbd>+<kbd>S</kbd>、名前を付けて <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>、印刷 <kbd>Ctrl</kbd>+<kbd>P</kbd>、検索 <kbd>Ctrl</kbd>+<kbd>F</kbd>/<kbd>F3</kbd>、置換 <kbd>Ctrl</kbd>+<kbd>H</kbd>、行移動 <kbd>Ctrl</kbd>+<kbd>G</kbd>、日時 <kbd>F5</kbd>、ズーム <kbd>Ctrl</kbd>+<kbd>+</kbd>/<kbd>-</kbd>/<kbd>0</kbd>。</p>
 
 <h2 id="error">12. エラー処理・ログ</h2>
 <ul>
@@ -173,6 +196,9 @@
 <ul>
 <li>オンラインで一度開いた後、オフラインで再読み込みしても起動・編集・保存できる</li>
 <li>複数タブの書きかけが混ざらず、閉じたタブの書きかけを別タブで復元できる</li>
+<li>アプリ内でタブを追加・切り替え・閉じることができ、切り替えても内容と「元に戻す」履歴が保たれる。未保存タブを閉じると確認が出る</li>
+<li>再読み込み後、複数タブの書きかけを「すべて復元」で戻せる(一時保存が重複しない)</li>
+<li>ボタンやメニューを押した直後でも Ctrl+V で本文に貼り付けられる。Excelの表はタブ区切りで貼り付く。文字のないクリップボードでは理由が表示される</li>
 <li>同じファイルを2タブで開くと双方に警告が出る/外部で変更されたファイルの上書き前に確認が出る</li>
 <li>最近使ったファイルから開ける(最大10件、重複なし)</li>
 <li>sw.js 更新時に更新バナーが表示され、「今すぐ更新」で書きかけを保ったまま新版になる</li>
@@ -184,6 +210,7 @@
 <h2 id="history">15. 更新履歴</h2>
 <table>
 <tr><th>バージョン</th><th>日付</th><th>内容</th></tr>
+<tr><td>検討中(ver未確定)</td><td>2026-11-19</td><td>アプリ内タブ機能(複数文書の同時編集、文書ごとの一時保存・すべて復元、同じファイルは既存タブへ切り替え)。貼り付けの改善(フォーカス外の Ctrl+V を本文へ、HTMLのみの表の文字化、失敗理由の表示、操作後のフォーカス戻し)。編集メニューに切り取り・コピー・貼り付け。</td></tr>
 <tr><td>検討中(ver未確定)</td><td>2026-11-18</td><td>初版の試作。HTML試作の不具合修正(タブ別一時保存、Alt+N、UTF-16、容量超過警告、性能)、提案6件(IndexedDB一時保存、persist、最近使ったファイル、競合警告、更新通知、D&D・印刷)を実装。</td></tr>
 </table>
 </main>

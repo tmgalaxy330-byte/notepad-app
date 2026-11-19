@@ -30,9 +30,18 @@
   body{background:var(--bg);color:var(--text);font-family:"Segoe UI","Yu Gothic UI","Meiryo",sans-serif;font-size:14px;display:flex;flex-direction:column;overflow:hidden}
   button{font:inherit;color:inherit}
 
-  .titlebar{display:flex;align-items:center;gap:8px;padding:6px 12px;background:var(--bg)}
-  .titlebar img{width:18px;height:18px}
-  .titlebar .doc-title{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .titlebar{display:flex;align-items:flex-end;gap:6px;padding:6px 12px 0;background:var(--bg);min-width:0}
+  .titlebar img{width:18px;height:18px;flex:none;align-self:center;margin-bottom:4px}
+  /* タブ(1つの画面で複数の文書を切り替える) */
+  .tabs{display:flex;gap:2px;overflow-x:auto;min-width:0;scrollbar-width:thin}
+  .tab{display:flex;align-items:center;gap:4px;max-width:220px;min-width:90px;padding:6px 6px 6px 12px;border-radius:8px 8px 0 0;cursor:pointer;font-size:13px;color:var(--sub);user-select:none;flex:none}
+  .tab:hover{background:var(--hover)}
+  .tab.active{background:var(--surface);color:var(--text);box-shadow:0 -1px 0 var(--border) inset}
+  .tab .lbl{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tab .x{background:none;border:none;border-radius:4px;padding:0 6px;cursor:pointer;color:var(--sub);line-height:20px}
+  .tab .x:hover{background:var(--border);color:var(--text)}
+  .tab-add{background:none;border:none;border-radius:6px;padding:4px 10px;margin-bottom:2px;cursor:pointer;font-size:16px;flex:none}
+  .tab-add:hover{background:var(--hover)}
 
   .menubar{display:flex;align-items:center;gap:2px;padding:0 6px;background:var(--bg);position:relative;flex-wrap:wrap}
   .menu{position:relative}
@@ -70,8 +79,8 @@
   .findbar .find-status{font-size:12px;color:var(--sub)}
 
   .editor-wrap{flex:1;display:flex;background:var(--surface);margin:0 8px;border:1px solid var(--border);border-radius:8px 8px 0 0;overflow:hidden;min-height:0;position:relative}
-  textarea#editor{flex:1;border:none;outline:none;resize:none;background:transparent;color:var(--text);padding:12px 16px;font-family:var(--editor-font);font-size:16px;line-height:1.6;tab-size:4}
-  textarea#editor.nowrap{white-space:pre;overflow-x:auto}
+  .editor-wrap textarea{flex:1;border:none;outline:none;resize:none;background:transparent;color:var(--text);padding:12px 16px;font-family:var(--editor-font);font-size:16px;line-height:1.6;tab-size:4}
+  .editor-wrap textarea.nowrap{white-space:pre;overflow-x:auto}
   .dropzone{display:none;position:absolute;inset:8px;border:3px dashed var(--accent);border-radius:8px;background:color-mix(in srgb,var(--surface) 85%,transparent);align-items:center;justify-content:center;font-size:18px;color:var(--accent);pointer-events:none}
   .dropzone.show{display:flex}
 
@@ -123,7 +132,9 @@
     .statusbar .opt{display:none}
     .editor-wrap,.statusbar{margin-left:0;margin-right:0;border-radius:0}
     .statusbar{margin-bottom:0}
-    textarea#editor{font-size:15px;padding:10px 12px}
+    .editor-wrap textarea{font-size:15px;padding:10px 12px}
+    .titlebar{padding-left:8px;padding-right:8px}
+    .tab{min-width:70px;max-width:140px;padding-left:8px}
     .menu > button{padding:6px 9px}
   }
 </style>
@@ -132,14 +143,15 @@
 
 <div class="titlebar">
   <img src="icon.svg" alt="" width="18" height="18">
-  <span class="doc-title" id="docTitle">無題 - 下書きメモ帳</span>
+  <div class="tabs" id="tabs" role="tablist" aria-label="開いている文書"></div>
+  <button class="tab-add" data-act="new" title="新しいタブ (Alt+N)" aria-label="新しいタブ">＋</button>
 </div>
 
 <nav class="menubar" id="menubar">
   <div class="menu">
     <button data-menu>ファイル</button>
     <div class="dropdown">
-      <button data-act="new">新規<span class="kbd">Alt+N</span></button>
+      <button data-act="new">新しいタブ<span class="kbd">Alt+N</span></button>
       <button data-act="open">開く…<span class="kbd">Ctrl+O</span></button>
       <button data-act="recent" id="mRecent">最近使ったファイル…<span class="kbd">Ctrl+Shift+O</span></button>
       <hr>
@@ -147,6 +159,8 @@
       <button data-act="saveAs">名前を付けて保存…<span class="kbd">Ctrl+Shift+S</span></button>
       <hr>
       <button data-act="print">印刷…<span class="kbd">Ctrl+P</span></button>
+      <hr>
+      <button data-act="closeTab">タブを閉じる<span class="kbd">Alt+W</span></button>
     </div>
   </div>
   <div class="menu">
@@ -154,6 +168,10 @@
     <div class="dropdown">
       <button data-act="undo">元に戻す<span class="kbd">Ctrl+Z</span></button>
       <button data-act="redo">やり直し<span class="kbd">Ctrl+Y</span></button>
+      <hr>
+      <button data-act="cut">切り取り<span class="kbd">Ctrl+X</span></button>
+      <button data-act="copy">コピー<span class="kbd">Ctrl+C</span></button>
+      <button data-act="paste">貼り付け<span class="kbd">Ctrl+V</span></button>
       <hr>
       <button data-act="find">検索<span class="kbd">Ctrl+F</span></button>
       <button data-act="replace">置換<span class="kbd">Ctrl+H</span></button>
@@ -181,7 +199,7 @@
 
 <div class="banner ok" id="updateBanner"><span class="msg">新しいバージョンがあります。更新すると書きかけの内容は自動で引き継がれます。</span><button data-act="applyUpdate">今すぐ更新</button><button data-act="dismissUpdate">あとで</button></div>
 <div class="banner err" id="errBanner"><span class="msg" id="errBannerMsg"></span><button data-act="showLog">ログを見る</button><button data-act="dismissErr">閉じる</button></div>
-<div class="banner info" id="restoreBanner"><span class="msg" id="restoreMsg"></span><button data-act="restore">復元する</button><button data-act="discardDraft">破棄</button></div>
+<div class="banner info" id="restoreBanner"><span class="msg" id="restoreMsg"></span><button data-act="restore">復元する</button><button data-act="restoreAll" id="restoreAllBtn">すべて復元</button><button data-act="discardDraft">破棄</button></div>
 <div class="banner warn" id="warnBanner"><span class="msg" id="warnMsg"></span><button data-act="dismissWarn">閉じる</button></div>
 
 <div class="findbar" id="findbar">
@@ -201,7 +219,6 @@
 </div>
 
 <div class="editor-wrap" id="editorWrap">
-  <textarea id="editor" spellcheck="false" autocomplete="off" placeholder="ここに入力…(ファイルをドラッグ&ドロップしても開けます)"></textarea>
   <div class="dropzone" id="dropzone">ここにファイルをドロップして開く</div>
 </div>
 
@@ -318,7 +335,9 @@
   'use strict';
   const APP_VERSION = '検討中(ver未確定)';
   const $ = id => document.getElementById(id);
-  const ed = $('editor');
+  // 文書はタブごとに1つ。D = 表示中の文書、ed = その文書の入力欄(文書ごとに入力欄を分け、元に戻す履歴もタブごとに保つ)
+  const docs = [];
+  let D = null, ed = null;
 
   /* ================= 小さな保存領域(設定・ログ・タブ生存記録) ================= */
   const mem = {};
@@ -396,7 +415,7 @@
   heartbeat(); setInterval(heartbeat, 4000);
 
   /* ================= 状態・設定 ================= */
-  const state = { fileName:null, handle:null, lastModified:0, dirty:false, savedAt:null, eol:'CRLF', enc:'UTF-8', zoom:100, pending:null, updating:false };
+  const state = { zoom:100, pending:null, updating:false };
   const defaults = { theme:'light', wrap:true, font:16, autosave:true, eol:'CRLF', status:true };
   let settings = Object.assign({}, defaults);
   try { Object.assign(settings, JSON.parse(store.get(K.settings) || '{}')); } catch(e){}
@@ -415,13 +434,20 @@
     return '無題: ' + first.slice(0, n).join('') + (first.length > n ? '…' : '');
   }
   // タブ見出し:未保存は「●」、ファイル名を先頭に。無題なら1行目の冒頭で見分けられるようにする
+  function docLabel(d){ return d.fileName || headLabel(d.ta.value, 20); }
+  function updateTab(d){
+    const label = docLabel(d);
+    d.tabEl.querySelector('.lbl').textContent = (d.dirty ? '● ' : '') + label;
+    d.tabEl.title = label + (d.dirty ? '(未保存の変更あり)' : '');
+  }
   function updateTitle(){
-    const label = state.fileName || headLabel(ed.value, 20);
-    $('docTitle').textContent = (state.dirty ? '● ' : '') + label + ' - 下書きメモ帳';
-    document.title = (state.dirty ? '● ' : '') + label;
+    updateTab(D);
+    // ブラウザのタブ見出し:表示中の文書名。ほかに未保存のタブがあれば件数も示す
+    const others = docs.filter(d => d !== D && d.dirty).length;
+    document.title = (D.dirty ? '● ' : '') + docLabel(D) + (docs.length > 1 ? `(他 ${docs.length - 1} タブ${others ? '・未保存 ' + others : ''})` : '');
   }
   let rafId = 0;
-  function scheduleStatus(){ if (rafId) return; rafId = requestAnimationFrame(() => { rafId = 0; updateStatus(); if (!state.fileName) updateTitle(); }); }
+  function scheduleStatus(){ if (rafId) return; rafId = requestAnimationFrame(() => { rafId = 0; updateStatus(); if (!D.fileName) updateTitle(); }); }
   function updateStatus(){
     const v = ed.value, pos = ed.selectionStart;
     let line = 1, lastNl = -1, nls = 0, pairs = 0;
@@ -433,22 +459,25 @@
     $('stPos').textContent = `行 ${line}、列 ${pos - lastNl}`;
     $('stCount').textContent = `${(v.length - nls - pairs).toLocaleString()} 文字`;
     $('stZoom').textContent = state.zoom + '%';
-    $('stEol').textContent = state.eol === 'CRLF' ? 'Windows (CRLF)' : 'Unix (LF)';
-    $('stEnc').textContent = state.enc;
-    $('stSave').textContent = state.dirty ? '未保存の変更あり'
-      : (state.savedAt ? `保存済み ${fmtDate(state.savedAt)}` : (state.fileName ? '変更なし' : '未保存'));
+    $('stEol').textContent = D.eol === 'CRLF' ? 'Windows (CRLF)' : 'Unix (LF)';
+    $('stEnc').textContent = D.enc;
+    $('stSave').textContent = D.dirty ? '未保存の変更あり'
+      : (D.savedAt ? `保存済み ${fmtDate(D.savedAt)}` : (D.fileName ? '変更なし' : '未保存'));
+  }
+  function styleEditor(ta){
+    ta.classList.toggle('nowrap', !settings.wrap);
+    ta.setAttribute('wrap', settings.wrap ? 'soft' : 'off');
+    ta.style.fontSize = (settings.font * state.zoom / 100) + 'px';
   }
   function applySettings(){
     let theme = settings.theme;
     if (theme === 'system') theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     document.body.dataset.theme = theme;
     $('themeBtn').textContent = theme === 'dark' ? '☀' : '🌙';
-    ed.classList.toggle('nowrap', !settings.wrap);
-    ed.setAttribute('wrap', settings.wrap ? 'soft' : 'off');
+    docs.forEach(d => styleEditor(d.ta));
     $('mWrap').classList.toggle('on', settings.wrap);
     $('mStatus').classList.toggle('on', settings.status);
     $('statusbar').style.display = settings.status ? '' : 'none';
-    ed.style.fontSize = (settings.font * state.zoom / 100) + 'px';
     $('setTheme').value = settings.theme; $('setWrap').checked = settings.wrap;
     $('setFont').value = String(settings.font); $('setAutosave').checked = settings.autosave;
     $('setEol').value = settings.eol;
@@ -460,22 +489,34 @@
   function showWarn(msg){ $('warnMsg').textContent = msg; $('warnBanner').classList.add('show'); }
 
   /* ================= 自動保存(IndexedDB への一時保存) ================= */
-  let autoTimer, quotaWarned = false, draftExists = false;
+  // 保存キーは「ブラウザのタブID:文書ID」。ブラウザのタブが違えば混ざらず、同じ画面内のタブも別々に保存される
+  let autoTimer, quotaWarned = false;
+  const draftKey = d => tabId + ':' + d.id;
+  const ownerOf = key => String(key).split(':')[0];
   function scheduleAutosave(){ if (!settings.autosave) return; clearTimeout(autoTimer); autoTimer = setTimeout(writeDraft, 1500); }
   async function writeDraft(){
     clearTimeout(autoTimer);
-    try {
-      if (!state.dirty || !settings.autosave) { if (draftExists) { await idb.del('drafts', tabId); draftExists = false; } return; }
-      await idb.put('drafts', tabId, { text: ed.value, name: state.fileName, eol: state.eol, t: new Date().toISOString() });
-      draftExists = true; quotaWarned = false;
-    } catch(e){
-      if (e && e.name === 'QuotaExceededError') {
-        if (!quotaWarned) { quotaWarned = true; logError('自動保存', '保存容量が不足しているため一時保存できませんでした');
-          showWarn('保存容量が足りないため一時保存できませんでした。こまめに「保存」でファイルに保存してください。'); }
-      } else logError('自動保存', e);
+    for (const d of docs.slice()) {
+      try {
+        if (!d.dirty || !settings.autosave) {
+          if (d.draftSaved) { await idb.del('drafts', draftKey(d)); d.draftSaved = false; }
+          continue;
+        }
+        if (!d.changed && d.draftSaved) continue; // 前回から変更のない文書は書き直さない
+        d.changed = false;
+        await idb.put('drafts', draftKey(d), { text: d.ta.value, name: d.fileName, eol: d.eol, t: new Date().toISOString() });
+        d.draftSaved = true; quotaWarned = false;
+      } catch(e){
+        d.changed = true;
+        if (e && e.name === 'QuotaExceededError') {
+          if (!quotaWarned) { quotaWarned = true; logError('自動保存', '保存容量が不足しているため一時保存できませんでした');
+            showWarn('保存容量が足りないため一時保存できませんでした。こまめに「保存」でファイルに保存してください。'); }
+        } else logError('自動保存', e);
+      }
     }
   }
-  async function deleteOwnDraft(){ clearTimeout(autoTimer); try { await idb.del('drafts', tabId); draftExists = false; } catch(e){ logError('一時保存の削除', e); } }
+  async function deleteDraft(d){ d.changed = false; try { await idb.del('drafts', draftKey(d)); d.draftSaved = false; } catch(e){ logError('一時保存の削除', e); } }
+  const deleteOwnDraft = () => deleteDraft(D);
 
   /* ================= 最近使ったファイル(ファイルへの参照を IndexedDB に保存) ================= */
   const RECENT_MAX = 10;
@@ -500,7 +541,7 @@
       const li = document.createElement('li');
       const b = document.createElement('button'); b.className = 'open';
       b.textContent = value.name; const s = document.createElement('div'); s.className = 'desc'; s.textContent = '最終使用:' + fmtDate(value.t); b.appendChild(s);
-      b.addEventListener('click', () => { closeDlg('recentDlg'); guardUnsaved(() => openRecent(key, value)); });
+      b.addEventListener('click', () => { closeDlg('recentDlg'); openRecent(key, value); });
       const rm = document.createElement('button'); rm.className = 'rm'; rm.title = '一覧から外す'; rm.textContent = '✕';
       rm.addEventListener('click', async () => { await idb.del('recent', key); showRecent(); });
       li.append(b, rm); ul.appendChild(li);
@@ -514,7 +555,7 @@
       if (perm !== 'granted') perm = await h.requestPermission({ mode: 'read' });
       if (perm !== 'granted') { toast('ファイルへのアクセスが許可されませんでした'); return; }
       const f = await h.getFile();
-      loadBuffer(await f.arrayBuffer(), f.name, h, f.lastModified);
+      await loadBuffer(await f.arrayBuffer(), f.name, h, f.lastModified);
     } catch(e){
       if (e && e.name === 'NotFoundError') { await idb.del('recent', key); showWarn(`「${value.name}」が見つかりません(移動・削除された可能性があります)。一覧から外しました。`); return; }
       logError('最近使ったファイルを開く', e);
@@ -524,36 +565,102 @@
   /* ================= 同じファイルを複数タブで開いたときの警告 ================= */
   let bc = null;
   try { bc = new BroadcastChannel('notepad-sync'); } catch(e){}
-  function announce(type){
-    if (!bc || !state.handle) return;
-    try { bc.postMessage({ type, from: tabId, handle: state.handle }); } catch(e){ /* 参照を送れない環境では何もしない */ }
+  function announce(type, d){
+    d = d || D;
+    if (!bc || !d.handle) return;
+    try { bc.postMessage({ type, from: tabId, handle: d.handle, name: d.fileName }); } catch(e){ /* 参照を送れない環境では何もしない */ }
   }
-  async function sameFile(h){ try { return !!(state.handle && h && await state.handle.isSameEntry(h)); } catch(e){ return false; } }
+  // 同じファイルを開いている文書(このブラウザタブ内)を探す
+  async function findDocByHandle(h, except){
+    if (!h) return null;
+    for (const d of docs) { if (d === except || !d.handle) continue;
+      try { if (await d.handle.isSameEntry(h)) return d; } catch(e){} }
+    return null;
+  }
   if (bc) bc.onmessage = async ev => {
     const m = ev.data || {}; if (m.from === tabId) return;
-    if (m.type === 'opened' && await sameFile(m.handle)) {
-      showWarn(`「${state.fileName}」は別のタブでも開かれています。両方で編集すると、後から保存した方で上書きされます。`);
-      try { bc.postMessage({ type:'alsoOpen', from: tabId, to: m.from }); } catch(e){}
-    } else if (m.type === 'alsoOpen' && m.to === tabId) {
-      showWarn(`「${state.fileName}」は別のタブでも開かれています。両方で編集すると、後から保存した方で上書きされます。`);
-    } else if (m.type === 'saved' && await sameFile(m.handle)) {
-      showWarn(`別のタブで「${state.fileName}」が保存されました。このタブで保存すると、その内容を上書きします。`);
+    if (m.type === 'alsoOpen') {
+      if (m.to === tabId) showWarn(`「${m.name}」は別のブラウザタブ(またはウィンドウ)でも開かれています。両方で編集すると、後から保存した方で上書きされます。`);
+      return;
+    }
+    const d = await findDocByHandle(m.handle);
+    if (!d) return;
+    if (m.type === 'opened') {
+      showWarn(`「${d.fileName}」は別のブラウザタブ(またはウィンドウ)でも開かれています。両方で編集すると、後から保存した方で上書きされます。`);
+      try { bc.postMessage({ type:'alsoOpen', from: tabId, to: m.from, name: d.fileName }); } catch(e){}
+    } else if (m.type === 'saved') {
+      showWarn(`別のブラウザタブ(またはウィンドウ)で「${d.fileName}」が保存されました。このタブで保存すると、その内容を上書きします。`);
     }
   };
 
   /* ================= 文書操作 ================= */
+  /* ---- タブ(文書)の作成・切り替え・閉じる ---- */
+  const PLACEHOLDER = 'ここに入力…(ファイルをドラッグ&ドロップしても開けます)';
+  function createDoc(){
+    const ta = document.createElement('textarea');
+    ta.spellcheck = false; ta.setAttribute('autocomplete', 'off'); ta.placeholder = PLACEHOLDER; ta.hidden = true;
+    $('editorWrap').insertBefore(ta, $('dropzone'));
+    const d = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), ta,
+      fileName:null, handle:null, lastModified:0, dirty:false, savedAt:null, eol:settings.eol, enc:'UTF-8',
+      changed:false, draftSaved:false, tabEl:null };
+    // 入力欄ごとのイベント
+    ta.addEventListener('input', () => onInput(d));
+    ['keyup','click','select','focus'].forEach(ev => ta.addEventListener(ev, scheduleStatus));
+    ta.addEventListener('keydown', e => { if (e.key === 'Tab' && !e.ctrlKey && !e.altKey) { e.preventDefault(); insertText('\t'); } });
+    ta.addEventListener('wheel', e => { if (e.ctrlKey) { e.preventDefault(); zoom(e.deltaY < 0 ? 10 : -10); } }, { passive:false });
+    // タブ見出し
+    const tab = document.createElement('div'); tab.className = 'tab'; tab.setAttribute('role', 'tab');
+    const lbl = document.createElement('span'); lbl.className = 'lbl';
+    const x = document.createElement('button'); x.className = 'x'; x.textContent = '✕'; x.title = 'タブを閉じる (Alt+W)'; x.setAttribute('aria-label', 'タブを閉じる');
+    tab.append(lbl, x);
+    tab.addEventListener('click', e => { if (e.target === x) closeDoc(d); else activate(d); });
+    tab.addEventListener('auxclick', e => { if (e.button === 1) { e.preventDefault(); closeDoc(d); } }); // ホイールクリックで閉じる
+    d.tabEl = tab; $('tabs').appendChild(tab);
+    docs.push(d); styleEditor(ta); updateTab(d);
+    return d;
+  }
+  function activate(d){
+    if (D === d) { ed.focus(); return; }
+    if (D) { D.tabEl.classList.remove('active'); D.tabEl.setAttribute('aria-selected', 'false'); D.ta.hidden = true; }
+    D = d; ed = d.ta;
+    d.ta.hidden = false; d.tabEl.classList.add('active'); d.tabEl.setAttribute('aria-selected', 'true');
+    d.tabEl.scrollIntoView({ block:'nearest', inline:'nearest' });
+    updateTitle(); updateStatus();
+    if ($('findbar').classList.contains('show')) updateFindCount();
+    ed.focus();
+  }
+  function newTab(){ const d = createDoc(); activate(d); return d; }
+  // 何も書いていない無題のタブは、ファイルを開くときに再利用する(Windowsのメモ帳と同じ)
+  const isBlank = d => !d.dirty && !d.fileName && !d.ta.value;
+  const tabForOpen = () => (D && isBlank(D)) ? D : newTab();
+  function closeDoc(d){
+    if (d.dirty) { activate(d); guardUnsaved(() => removeDoc(d)); return; }
+    removeDoc(d);
+  }
+  function removeDoc(d){
+    const i = docs.indexOf(d); if (i === -1) return;
+    deleteDraft(d);
+    docs.splice(i, 1); d.ta.remove(); d.tabEl.remove();
+    if (D === d) { D = null; ed = null; activate(docs.length ? docs[Math.min(i, docs.length - 1)] : createDoc()); }
+    else updateTitle();
+  }
+  function switchTab(n){ // n: 1~8 はその番号、9 は最後のタブ
+    const d = n === 9 ? docs[docs.length - 1] : docs[n - 1];
+    if (d) activate(d);
+  }
+
   function setDoc(text, name, handle, eol, enc, lastModified){
-    ed.value = text; state.fileName = name; state.handle = handle || null; state.lastModified = lastModified || 0;
-    state.eol = eol || settings.eol; state.enc = enc || 'UTF-8';
-    state.dirty = false; state.savedAt = null;
+    ed.value = text; D.fileName = name; D.handle = handle || null; D.lastModified = lastModified || 0;
+    D.eol = eol || settings.eol; D.enc = enc || 'UTF-8';
+    D.dirty = false; D.savedAt = null;
     ed.setSelectionRange(0,0); ed.scrollTop = 0;
     deleteOwnDraft();
     updateTitle(); updateStatus(); ed.focus();
   }
   function guardUnsaved(next){
-    if (!state.dirty) { next(); return; }
+    if (!D.dirty) { next(); return; }
     state.pending = next;
-    $('confirmMsg').textContent = `「${state.fileName || headLabel(ed.value, 20)}」への変更内容を保存しますか?`;
+    $('confirmMsg').textContent = `「${D.fileName || headLabel(ed.value, 20)}」への変更内容を保存しますか?`;
     openDlg('confirmDlg');
   }
   function decode(buf){
@@ -565,9 +672,13 @@
     try { return { text: new TextDecoder('utf-8', { fatal:true }).decode(bytes.subarray(start)), enc: start ? 'UTF-8 (BOM)' : 'UTF-8' }; }
     catch(e){ return { text: new TextDecoder('shift_jis').decode(bytes), enc: 'Shift_JIS' }; }
   }
-  function loadBuffer(buf, name, handle, lastModified){
+  // ファイルを開く:すでに開いているファイルならそのタブへ切り替え、そうでなければ新しいタブ(空きタブがあれば再利用)で開く
+  async function loadBuffer(buf, name, handle, lastModified){
+    const already = await findDocByHandle(handle);
+    if (already) { activate(already); toast(`「${already.fileName}」はすでに開いています`); return; }
     const { text, enc } = decode(buf);
     const eol = /\r\n/.test(text) ? 'CRLF' : (/\n/.test(text) ? 'LF' : settings.eol);
+    activate(tabForOpen());
     setDoc(text.replace(/\r\n?/g, '\n'), name, handle, eol, enc, lastModified);
     if (!enc.startsWith('UTF-8')) showWarn(`このファイルは ${enc} で読み込みました。保存すると UTF-8 に変換されます。`);
     toast(`「${name}」を開きました`);
@@ -578,7 +689,7 @@
       if (fsaSupported) {
         const [h] = await window.showOpenFilePicker({ types:[{ description:'テキスト', accept:{ 'text/plain':['.txt','.md','.log','.csv'] } }] });
         const f = await h.getFile();
-        loadBuffer(await f.arrayBuffer(), f.name, h, f.lastModified);
+        await loadBuffer(await f.arrayBuffer(), f.name, h, f.lastModified);
       } else { $('fileInput').value = ''; $('fileInput').click(); }
     } catch(e){
       if (e && e.name === 'AbortError') return;
@@ -591,55 +702,57 @@
   }
   $('fileInput').addEventListener('change', async ev => {
     const f = ev.target.files[0]; if (!f) return;
-    try { loadBuffer(await f.arrayBuffer(), f.name, null, f.lastModified); } catch(e){ logError('ファイルを開く', e); }
+    try { await loadBuffer(await f.arrayBuffer(), f.name, null, f.lastModified); } catch(e){ logError('ファイルを開く', e); }
   });
-  const outputText = () => state.eol === 'CRLF' ? ed.value.replace(/\n/g, '\r\n') : ed.value;
-  function markSaved(name){
-    state.fileName = name; state.dirty = false; state.savedAt = new Date().toISOString();
-    state.enc = 'UTF-8'; deleteOwnDraft(); updateTitle(); updateStatus();
+  const outputText = d => d.eol === 'CRLF' ? d.ta.value.replace(/\n/g, '\r\n') : d.ta.value;
+  function markSaved(d, name){
+    d.fileName = name; d.dirty = false; d.savedAt = new Date().toISOString();
+    d.enc = 'UTF-8'; deleteDraft(d); updateTab(d); updateTitle(); updateStatus();
   }
+  // 保存は「保存を始めたときのタブ」に対して行う(保存先を選ぶ間にタブを切り替えても混ざらない)
   async function save(forceAs){
+    const d = D;
     try {
       if (fsaSupported) {
-        let h = state.handle;
-        if (h && !forceAs && state.lastModified) {
+        let h = d.handle;
+        if (h && !forceAs && d.lastModified) {
           // 開いた後に別の場所で書き換えられていないか確認
           let cur = null; try { cur = await h.getFile(); } catch(e){}
-          if (cur && cur.lastModified > state.lastModified) {
+          if (cur && cur.lastModified > d.lastModified) {
             const ok = await ask('ファイルが変更されています',
               `「${h.name}」は、このタブで開いた後に別の場所(別のタブやアプリ)で変更されています。上書きすると、その変更は失われます。上書きしますか?`, '上書きする');
             if (!ok) return false;
           }
         }
         if (!h || forceAs) {
-          h = await window.showSaveFilePicker({ suggestedName: state.fileName || (headLabel(ed.value, 30).replace(/^無題: ?/, '').replace(/[\\/:*?"<>|…]/g, '') || '無題') + '.txt',
+          h = await window.showSaveFilePicker({ suggestedName: d.fileName || (headLabel(d.ta.value, 30).replace(/^無題: ?/, '').replace(/[\\/:*?"<>|…]/g, '') || '無題') + '.txt',
             types:[{ description:'テキスト', accept:{ 'text/plain':['.txt'] } }] });
         }
-        const w = await h.createWritable(); await w.write(outputText()); await w.close();
-        state.handle = h;
-        try { state.lastModified = (await h.getFile()).lastModified; } catch(e){ state.lastModified = Date.now(); }
-        markSaved(h.name); toast('保存しました');
-        addRecent(h); announce('saved');
+        const w = await h.createWritable(); await w.write(outputText(d)); await w.close();
+        d.handle = h;
+        try { d.lastModified = (await h.getFile()).lastModified; } catch(e){ d.lastModified = Date.now(); }
+        markSaved(d, h.name); toast('保存しました');
+        addRecent(h); announce('saved', d);
         return true;
       }
-      return downloadSave();
+      return downloadSave(d);
     } catch(e){
       if (e && e.name === 'AbortError') return false;
       if (e && (e.name === 'SecurityError' || e.name === 'NotAllowedError')) {
         showWarn('この環境ではファイルへの上書き保存が制限されています。ダウンロードフォルダに保存します。');
-        return downloadSave();
+        return downloadSave(d);
       }
       logError('保存', e); return false;
     }
   }
-  function downloadSave(){
-    let name = state.fileName || (headLabel(ed.value, 30).replace(/^無題: ?/, '').replace(/[\\/:*?"<>|…]/g, '') || '無題');
+  function downloadSave(d){
+    let name = d.fileName || (headLabel(d.ta.value, 30).replace(/^無題: ?/, '').replace(/[\\/:*?"<>|…]/g, '') || '無題');
     if (!/\.[^.]+$/.test(name)) name += '.txt';
-    const blob = new Blob([outputText()], { type:'text/plain;charset=utf-8' });
+    const blob = new Blob([outputText(d)], { type:'text/plain;charset=utf-8' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    markSaved(name); toast('ダウンロードフォルダに保存しました'); return true;
+    markSaved(d, name); toast('ダウンロードフォルダに保存しました'); return true;
   }
 
   /* ================= 汎用の確認ダイアログ ================= */
@@ -655,7 +768,7 @@
   function insertText(text){
     ed.focus();
     const ok = document.execCommand && document.execCommand('insertText', false, text);
-    if (!ok) { ed.setRangeText(text, ed.selectionStart, ed.selectionEnd, 'end'); onInput(); }
+    if (!ok) { ed.setRangeText(text, ed.selectionStart, ed.selectionEnd, 'end'); onInput(D); }
   }
   function timestamp(){ const d = new Date();
     insertText(`${p2(d.getHours())}:${p2(d.getMinutes())} ${d.getFullYear()}/${p2(d.getMonth()+1)}/${p2(d.getDate())}`); }
@@ -736,13 +849,13 @@
     if (!file) return;
     // ドロップ処理中にしか取得できないため、先にファイル参照を要求しておく(対応環境のみ)
     const handleP = (fsaSupported && item && item.getAsFileSystemHandle) ? item.getAsFileSystemHandle().catch(() => null) : Promise.resolve(null);
-    guardUnsaved(async () => {
+    (async () => {
       try {
         const h = await handleP;
         const f = (h && h.kind === 'file') ? await h.getFile() : file;
-        loadBuffer(await f.arrayBuffer(), f.name, (h && h.kind === 'file') ? h : null, f.lastModified);
+        await loadBuffer(await f.arrayBuffer(), f.name, (h && h.kind === 'file') ? h : null, f.lastModified);
       } catch(err){ logError('ドロップしたファイルを開く', err); }
-    });
+    })();
   });
 
   /* ================= ダイアログ・メニュー ================= */
@@ -757,24 +870,39 @@
   document.addEventListener('click', e => { if (!e.target.closest('.menu')) closeMenus(); });
 
   /* ================= 復元候補の提示 ================= */
-  let currentOffer = null;
-  async function listDrafts(includeOwn){
+  let currentOffer = null, offerOwn = false;
+  // 復元の対象:閉じられたブラウザタブの書きかけ、と起動時(再読み込み)の自分の書きかけ。今開いている文書の分は除く
+  async function listDrafts(){
     const out = [];
+    const openKeys = new Set(docs.map(draftKey));
     const all = await idb.entries('drafts');
     for (const { key, value } of all) {
-      if (key === tabId ? !includeOwn : isAlive(key)) continue; // 開いている他タブの分は対象外。自分の分は起動時(再読み込み)のみ
+      if (openKeys.has(key)) continue;
+      const owner = ownerOf(key); // 旧形式(ブラウザタブIDのみ)のキーもそのまま扱える
+      if (owner === tabId ? !offerOwn : isAlive(owner)) continue;
       if (value && typeof value.text === 'string') out.push({ key, d: value }); else await idb.del('drafts', key);
     }
     return out.sort((a, b) => a.d.t < b.d.t ? 1 : -1);
   }
-  async function offerDrafts(includeOwn){
+  async function offerDrafts(){
     let list = [];
-    try { list = await listDrafts(includeOwn); } catch(e){ logError('一時保存の読み込み', e); }
-    if (!list.length) { currentOffer = null; $('restoreBanner').classList.remove('show'); return false; }
+    try { list = await listDrafts(); } catch(e){ logError('一時保存の読み込み', e); }
+    if (!list.length) { currentOffer = null; offerOwn = false; $('restoreBanner').classList.remove('show'); return false; }
     const { key, d } = list[0]; currentOffer = key;
     const rest = list.length > 1 ? `(ほかに ${list.length - 1} 件)` : '';
     $('restoreMsg').textContent = `${fmtDate(d.t)} に一時保存された書きかけの内容(${d.name || headLabel(d.text, 15)}、${[...d.text].length.toLocaleString()} 文字)があります。${rest}`;
+    $('restoreAllBtn').style.display = list.length > 1 ? '' : 'none';
     $('restoreBanner').classList.add('show');
+    return true;
+  }
+  // 書きかけを1件、タブとして復元する(空きタブがあれば再利用)
+  async function restoreDraft(key){
+    const d = await idb.get('drafts', key);
+    if (!d) return false;
+    activate(tabForOpen());
+    ed.value = d.text; D.fileName = d.name; D.handle = null; D.lastModified = 0;
+    D.eol = d.eol || settings.eol; D.enc = 'UTF-8'; D.dirty = true; D.changed = true;
+    updateTitle(); updateStatus();
     return true;
   }
 
@@ -812,8 +940,12 @@
 
   /* ================= アクション ================= */
   const actions = {
-    new: () => guardUnsaved(() => setDoc('', null, null)),
-    open: () => guardUnsaved(openFile),
+    new: () => newTab(),
+    open: openFile,
+    closeTab: () => closeDoc(D),
+    cut: () => { ed.focus(); if (!document.execCommand('cut')) toast('Ctrl+X で切り取ってください'); },
+    copy: () => { ed.focus(); if (!document.execCommand('copy')) toast('Ctrl+C でコピーしてください'); },
+    paste: pasteFromMenu,
     recent: () => fsaSupported ? showRecent() : toast('この環境では「最近使ったファイル」は使えません'),
     closeRecent: () => closeDlg('recentDlg'),
     clearRecent: async () => { for (const { key } of await idb.entries('recent')) await idb.del('recent', key); showRecent(); toast('一覧を消去しました'); },
@@ -847,29 +979,37 @@
       state.updating = true; await writeDraft();
       waitingWorker.postMessage({ type: 'SKIP_WAITING' });
     },
-    restore: () => {
+    restore: async () => {
       const key = currentOffer; $('restoreBanner').classList.remove('show');
       if (!key) return;
-      guardUnsaved(async () => {
-        try {
-          const d = await idb.get('drafts', key);
-          if (!d) { toast('この書きかけは別のタブで復元済みか、削除されています'); offerDrafts(false); return; }
-          if (key !== tabId) await idb.del('drafts', key);
-          ed.value = d.text; state.fileName = d.name; state.handle = null; state.lastModified = 0;
-          state.eol = d.eol || settings.eol; state.enc = 'UTF-8'; state.dirty = true;
-          updateTitle(); updateStatus(); await writeDraft(); toast('書きかけの内容を復元しました'); ed.focus();
-          if (d.name) showWarn('復元した内容は元のファイルとの関連付けが外れています。「名前を付けて保存」で保存してください。');
-        } catch(e){ logError('復元', e); }
-        offerDrafts(false);
-      });
+      try {
+        if (await restoreDraft(key)) {
+          await writeDraft(); await idb.del('drafts', key); toast('書きかけの内容を復元しました'); ed.focus();
+          if (D.fileName) showWarn('復元した内容は元のファイルとの関連付けが外れています。「名前を付けて保存」で保存してください。');
+        } else toast('この書きかけは別のタブで復元済みか、削除されています');
+      } catch(e){ logError('復元', e); }
+      offerDrafts();
+    },
+    restoreAll: async () => {
+      $('restoreBanner').classList.remove('show');
+      let n = 0, named = false;
+      try {
+        for (const { key } of (await listDrafts()).reverse()) { // 古い順に開き、最新を最後(表示中)にする
+          if (await restoreDraft(key)) { n++; if (D.fileName) named = true;
+            await writeDraft(); await idb.del('drafts', key); } // 新しいタブ側の一時保存を書いてから元を消す
+        }
+      } catch(e){ logError('復元', e); }
+      toast(`${n} 件の書きかけをタブで復元しました`); if (ed) ed.focus();
+      if (named) showWarn('復元した内容は元のファイルとの関連付けが外れています。ファイル名の付いたタブは「名前を付けて保存」で保存してください。');
+      offerDrafts();
     },
     discardDraft: async () => {
       $('restoreBanner').classList.remove('show');
-      try { if (currentOffer && (currentOffer !== tabId || !state.dirty)) await idb.del('drafts', currentOffer); } catch(e){ logError('一時保存の破棄', e); }
-      toast('一時保存を破棄しました'); offerDrafts(false);
+      try { if (currentOffer) await idb.del('drafts', currentOffer); } catch(e){ logError('一時保存の破棄', e); }
+      toast('一時保存を破棄しました'); offerDrafts(); ed.focus();
     },
     confirmSave: async () => { closeDlg('confirmDlg'); const ok = await save(false); const p = state.pending; state.pending = null; if (ok && p) p(); },
-    confirmDiscard: () => { closeDlg('confirmDlg'); state.dirty = false; deleteOwnDraft(); const p = state.pending; state.pending = null; if (p) p(); },
+    confirmDiscard: () => { closeDlg('confirmDlg'); D.dirty = false; deleteOwnDraft(); const p = state.pending; state.pending = null; if (p) p(); },
     confirmCancel: () => { closeDlg('confirmDlg'); state.pending = null; ed.focus(); },
     askOk: () => answerAsk(true), askCancel: () => answerAsk(false)
   };
@@ -878,22 +1018,73 @@
     e.preventDefault(); closeMenus();
     const fn = actions[el.dataset.act];
     if (fn) { try { const r = fn(); if (r && r.catch) r.catch(err => logError(el.dataset.act, err)); } catch(err){ logError(el.dataset.act, err); } }
+    refocusEditor();
   });
+  // ボタン操作の後は入力欄にカーソルを戻す(戻さないと Ctrl+V などのキー操作が効かなくなるため)
+  function refocusEditor(){
+    if (!ed || document.querySelector('.overlay.show')) return;
+    const a = document.activeElement;
+    if (a && a !== ed && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT')) return; // 検索欄などは邪魔しない
+    ed.focus();
+  }
 
   /* ================= 設定ダイアログの入力 ================= */
   $('setTheme').addEventListener('change', e => { settings.theme = e.target.value; saveSettings(); applySettings(); });
   $('setWrap').addEventListener('change', e => { settings.wrap = e.target.checked; saveSettings(); applySettings(); });
   $('setFont').addEventListener('change', e => { settings.font = +e.target.value; saveSettings(); applySettings(); });
-  $('setAutosave').addEventListener('change', e => { settings.autosave = e.target.checked; saveSettings(); if (!settings.autosave) deleteOwnDraft(); else scheduleAutosave(); });
-  $('setEol').addEventListener('change', e => { settings.eol = e.target.value; saveSettings(); if (!state.fileName) { state.eol = settings.eol; updateStatus(); } });
+  $('setAutosave').addEventListener('change', e => { settings.autosave = e.target.checked; saveSettings(); writeDraft(); });
+  $('setEol').addEventListener('change', e => { settings.eol = e.target.value; saveSettings(); if (!D.fileName) { D.eol = settings.eol; updateStatus(); } });
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (settings.theme === 'system') applySettings(); });
 
   /* ================= エディター入力 ================= */
-  function onInput(){ if (!state.dirty) { state.dirty = true; updateTitle(); } scheduleStatus(); scheduleAutosave(); }
-  ed.addEventListener('input', onInput);
-  ['keyup','click','select','focus'].forEach(ev => ed.addEventListener(ev, scheduleStatus));
-  document.addEventListener('selectionchange', () => { if (document.activeElement === ed) scheduleStatus(); });
-  ed.addEventListener('keydown', e => { if (e.key === 'Tab' && !e.ctrlKey && !e.altKey) { e.preventDefault(); insertText('\t'); } });
+  function onInput(d){ d = d || D; d.changed = true; if (!d.dirty) { d.dirty = true; updateTitle(); } scheduleStatus(); scheduleAutosave(); }
+  document.addEventListener('selectionchange', () => { if (ed && document.activeElement === ed) scheduleStatus(); });
+
+  /* ================= 貼り付け ================= */
+  // HTML形式しかない場合に文字だけを取り出す(表はタブ区切り・改行区切りにする。Excelの表と同じ形)
+  function htmlToText(html){
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    doc.querySelectorAll('script,style,head').forEach(n => n.remove());
+    const rows = [...doc.querySelectorAll('tr')];
+    if (rows.length) return rows.map(tr => [...tr.querySelectorAll('td,th')].map(c => c.textContent.replace(/\s*\n\s*/g, ' ').trim()).join('\t')).join('\n');
+    doc.querySelectorAll('br').forEach(n => n.replaceWith('\n'));
+    doc.querySelectorAll('p,div,li,h1,h2,h3,h4,h5,h6').forEach(n => n.append('\n'));
+    return (doc.body ? doc.body.textContent : '').replace(/\u00a0/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  }
+  function pasteText(text){
+    insertText(text.replace(/\r\n?/g, '\n'));
+  }
+  function explainEmptyClipboard(types){
+    showWarn('貼り付けられる文字がクリップボードにありません' + (types && types.length ? `(中身の形式:${types.join(', ')})` : '') +
+      '。Excelでは、コピー後に Esc キーを押したりセルを編集したりすると、コピーが解除される場合があります。点線の枠が出ている状態でもう一度コピーしてから貼り付けてください。図やグラフ(画像)は貼り付けできません。');
+  }
+  document.addEventListener('paste', e => {
+    if (!ed || document.querySelector('.overlay.show')) return; // ダイアログの入力欄などは通常どおり
+    const t = e.target;
+    const isEditor = t === ed;
+    const otherField = !isEditor && t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+    if (otherField) return; // 検索欄などへの貼り付けは通常どおり
+    const cd = e.clipboardData;
+    const types = cd ? [...cd.types] : [];
+    let text = cd ? cd.getData('text/plain') : '';
+    if (isEditor && text) return; // 入力欄に文字を貼る通常のケースはブラウザに任せる(元に戻すも効く)
+    e.preventDefault();
+    if (!text && cd && types.includes('text/html')) text = htmlToText(cd.getData('text/html'));
+    if (!text) { explainEmptyClipboard(types); return; }
+    pasteText(text); // 入力欄の外(ボタンなど)にカーソルがあっても、表示中のタブに貼り付ける
+  });
+  // 「編集」メニューの貼り付け(ブラウザから読み取りの許可を求められることがある)
+  async function pasteFromMenu(){
+    try {
+      if (!(navigator.clipboard && navigator.clipboard.readText)) throw new Error('unsupported');
+      const text = await navigator.clipboard.readText();
+      if (!text) { explainEmptyClipboard(); return; }
+      pasteText(text);
+    } catch(e){
+      ed.focus();
+      toast('メニューからの貼り付けは、この環境では許可されていません。Ctrl+V で貼り付けてください');
+    }
+  }
   $('findInput').addEventListener('input', updateFindCount);
   $('matchCase').addEventListener('change', updateFindCount);
   $('findInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); find(e.shiftKey ? -1 : 1); } });
@@ -915,6 +1106,9 @@
     if (e.key === 'F5' && !c) return run('timestamp');
     // Ctrl+N はChromeが新しいウィンドウ用に予約しておりページでは受け取れないため Alt+N を使う
     if (e.altKey && !c && k === 'n') return run('new');
+    // タブ操作:Ctrl+W / Ctrl+Tab はブラウザが使うため Alt を使う
+    if (e.altKey && !c && k === 'w') return run('closeTab');
+    if (e.altKey && !c && !e.shiftKey && /^Digit[1-9]$/.test(e.code)) { e.preventDefault(); return switchTab(+e.code.slice(5)); }
     if (!c) return;
     if (k === 's' && e.shiftKey) return run('saveAs');
     if (k === 's') return run('save');
@@ -928,16 +1122,16 @@
     if (k === '-') return run('zoomOut');
     if (k === '0') return run('zoomReset');
   });
-  ed.addEventListener('wheel', e => { if (e.ctrlKey) { e.preventDefault(); zoom(e.deltaY < 0 ? 10 : -10); } }, { passive:false });
 
   /* ================= 終了時 ================= */
-  window.addEventListener('beforeunload', e => { writeDraft(); if (state.dirty && !state.updating) { e.preventDefault(); e.returnValue = ''; } });
+  window.addEventListener('beforeunload', e => { writeDraft(); if (docs.some(d => d.dirty) && !state.updating) { e.preventDefault(); e.returnValue = ''; } });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') writeDraft(); });
   window.addEventListener('pagehide', () => { writeDraft(); store.del('np.alive.' + tabId); });
 
   /* ================= 起動処理 ================= */
   async function startup(){
-    applySettings(); updateTitle(); state.eol = settings.eol; updateStatus();
+    activate(createDoc());
+    applySettings();
     $('verInfo').textContent = APP_VERSION;
     $('mRecent').style.display = fsaSupported ? '' : 'none';
     // 前回のエラー通知
@@ -952,7 +1146,8 @@
     // 古いタブ生存記録の掃除(1日以上前)
     store.keys('np.alive.').forEach(k => { if (Date.now() - (+store.get(k) || 0) > 86400000) store.del(k); });
     // 書きかけの復元(このタブの再読み込み分 + 閉じられたタブの残り)
-    const found = await offerDrafts(true);
+    offerOwn = true;
+    const found = await offerDrafts();
     if (!found && !store.get(K.visited)) {
       // ブラウザのデータが全消去されると「訪問済み」の印も消えるため、初回起動と区別できない。両方の可能性を伝える。
       showWarn('このブラウザで初めて開いたか、前回終了時にブラウザのデータが消去された可能性があります。会社PCなど閉じるとデータが消える環境では、こまめに「保存」でファイルに保存してください。');
@@ -969,8 +1164,8 @@
 
   // 動作確認用の窓口(URL に ?selftest を付けたときだけ有効)
   if (/[?&]selftest\b/.test(location.search)) {
-    window.__np = { loadHandle: async h => { const f = await h.getFile(); loadBuffer(await f.arrayBuffer(), f.name, h, f.lastModified); },
-      save, state, idb, tabId, writeDraft };
+    window.__np = { loadHandle: async h => { const f = await h.getFile(); await loadBuffer(await f.arrayBuffer(), f.name, h, f.lastModified); },
+      save, state, idb, tabId, writeDraft, docs, get D(){ return D; } };
   }
 
   startup().catch(e => logError('起動', e));
