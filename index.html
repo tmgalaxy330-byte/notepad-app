@@ -4,8 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#005fb8">
-<meta name="description" content="Windowsのメモ帳のように使える、オフライン対応の下書きツール">
-<title>無題</title>
+<meta name="description" content="M’s Jotter(エムズ・ジョッター):Windowsのメモ帳のように使える、オフライン対応の下書きツール">
+<meta name="application-name" content="M’s Jotter">
+<meta name="apple-mobile-web-app-title" content="M’s Jotter">
+<title>M’s Jotter</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -17,7 +19,7 @@
     --warn-bg:#fff4ce; --warn-text:#5c4300; --err-bg:#fde7e9; --err-text:#7a1020;
     --info-bg:#e6f0fa; --info-text:#0b3a66; --ok-bg:#dff6dd; --ok-text:#0e4d0b;
     --shadow:0 8px 24px rgba(0,0,0,.14);
-    --editor-font:"Consolas","BIZ UDGothic","Yu Gothic UI","Meiryo",monospace;
+    --editor-font:"BIZ UDGothic","BIZ UDゴシック","MS Gothic","ＭＳ ゴシック","Noto Sans Mono CJK JP","Noto Sans CJK JP",monospace;
   }
   [data-theme="dark"]{
     --bg:#202020; --surface:#272727; --text:#e8e8e8; --sub:#a8a8a8;
@@ -98,6 +100,41 @@
   .gutter.show{display:block}
   .gutter-inner{position:absolute;right:8px;top:0;white-space:pre;text-align:right}
   .gutter-inner b{color:var(--text);font-weight:600}
+  /* 書式ツールバー */
+  .fmtbar{display:flex;align-items:center;gap:2px;padding:2px 8px 4px;background:var(--bg);flex-wrap:wrap;position:relative}
+  .fmtbar.hide{display:none}
+  .fb{background:none;border:1px solid transparent;border-radius:6px;padding:3px 9px;cursor:pointer;min-width:30px;line-height:20px}
+  .fb:hover,.fmtbar .menu.open > .fb{background:var(--hover);border-color:var(--border)}
+  .fmtbar .menu > button.fb{padding:3px 9px}
+  .fmtbar .sep{width:1px;height:20px;background:var(--border);margin:0 4px}
+  .seg{display:flex;border:1px solid var(--tab-border);border-radius:6px;overflow:hidden;margin-right:6px}
+  .seg button{border:none;background:none;padding:3px 10px;cursor:pointer;line-height:20px}
+  .seg button + button{border-left:1px solid var(--tab-border)}
+  .seg button.on{background:var(--accent);color:var(--accent-text)}
+  /* 書式表示(Markdown を整形して表示) */
+  .preview{display:none;flex:1;min-width:0;overflow:auto;padding:12px 20px;font-family:var(--editor-font);line-height:1.7;color:var(--text);outline:none}
+  .editor-wrap[data-view=split] .preview{display:block;border-left:1px solid var(--tab-border)}
+  .editor-wrap[data-view=format] .preview{display:block}
+  .editor-wrap[data-view=format] textarea,.editor-wrap[data-view=format] .gutter{display:none !important}
+  .editor-wrap[data-view=split] textarea{min-width:0}
+  .md h1,.md h2,.md h3,.md h4,.md h5,.md h6{margin:.8em 0 .4em;line-height:1.35}
+  .md h1{font-size:1.7em;border-bottom:2px solid var(--tab-border);padding-bottom:.2em}
+  .md h2{font-size:1.4em;border-bottom:1px solid var(--border);padding-bottom:.15em}
+  .md h3{font-size:1.2em} .md h4{font-size:1.05em} .md h5,.md h6{font-size:1em}
+  .md p{margin:.5em 0}
+  .md ul,.md ol{margin:.4em 0;padding-left:1.8em}
+  .md li.task{list-style:none;margin-left:-1.3em}
+  .md table{border-collapse:collapse;margin:.6em 0}
+  .md th,.md td{border:1px solid var(--tab-border);padding:4px 10px;vertical-align:top}
+  .md th{background:var(--bg);font-weight:600}
+  .md blockquote{margin:.5em 0;padding:.1em 1em;border-left:4px solid var(--tab-border);color:var(--sub)}
+  .md code{background:var(--hover);border-radius:4px;padding:0 4px;font-family:var(--editor-font)}
+  .md pre{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px;overflow:auto}
+  .md pre code{background:none;padding:0}
+  .md hr{border:none;border-top:1px solid var(--tab-border);margin:1em 0}
+  .md a{color:var(--accent)}
+  .preview .empty{color:var(--sub)}
+  @media (max-width:600px){ .editor-wrap[data-view=split]{flex-direction:column} .editor-wrap[data-view=split] .preview{border-left:none;border-top:1px solid var(--tab-border)} }
   .dropzone{display:none;position:absolute;inset:8px;border:3px dashed var(--accent);border-radius:8px;background:color-mix(in srgb,var(--surface) 85%,transparent);align-items:center;justify-content:center;font-size:18px;color:var(--accent);pointer-events:none}
   .dropzone.show{display:flex}
 
@@ -145,6 +182,9 @@
     body{display:block;overflow:visible;background:#fff;color:#000}
     body > *:not(#printArea){display:none !important}
     #printArea{display:block;white-space:pre-wrap;word-break:break-all;font-family:var(--editor-font);font-size:11pt;line-height:1.5;color:#000}
+    #printArea.md{white-space:normal;word-break:normal}
+    #printArea.md th,#printArea.md td{border:1px solid #888}
+    #printArea.md th{background:#eee}
   }
 
   @media (max-width:600px){
@@ -208,11 +248,14 @@
   <div class="menu">
     <button data-menu>表示</button>
     <div class="dropdown">
+      <button data-act="fontDlg">フォント(文字種)…</button>
+      <hr>
       <button data-act="zoomIn">拡大<span class="kbd">Ctrl+＋</span></button>
       <button data-act="zoomOut">縮小<span class="kbd">Ctrl+－</span></button>
       <button data-act="zoomReset">既定のズームに戻す<span class="kbd">Ctrl+0</span></button>
       <hr>
       <button data-act="toggleWrap" class="check" id="mWrap">右端で折り返す</button>
+      <button data-act="toggleFmtBar" class="check on" id="mFmtBar">書式ツールバー</button>
       <button data-act="toggleLineNo" class="check" id="mLineNo">行番号</button>
       <button data-act="toggleStatus" class="check on" id="mStatus">ステータスバー</button>
     </div>
@@ -222,9 +265,44 @@
   <button class="icon-btn" data-act="settings" title="設定">⚙ 設定</button>
 </nav>
 
+<div class="fmtbar" id="fmtbar" role="toolbar" aria-label="書式">
+  <div class="menu"><button class="fb" data-menu id="fbHead" title="見出し">標準 ▾</button>
+    <div class="dropdown">
+      <button data-act="fmtH0">標準の文字</button>
+      <button data-act="fmtH1" style="font-size:1.35em;font-weight:700">見出し 1</button>
+      <button data-act="fmtH2" style="font-size:1.2em;font-weight:700">見出し 2</button>
+      <button data-act="fmtH3" style="font-size:1.08em;font-weight:700">見出し 3</button>
+      <button data-act="fmtH4" style="font-weight:700">見出し 4</button>
+    </div></div>
+  <div class="menu"><button class="fb" data-menu title="リスト">≡ リスト ▾</button>
+    <div class="dropdown">
+      <button data-act="fmtUl">・ 箇条書き</button>
+      <button data-act="fmtOl">1. 番号付きリスト</button>
+      <button data-act="fmtTask">☐ チェックリスト</button>
+      <button data-act="fmtQuote">│ 引用</button>
+    </div></div>
+  <span class="sep"></span>
+  <button class="fb" data-act="fmtBold" title="太字 (Ctrl+B)"><b>B</b></button>
+  <button class="fb" data-act="fmtItalic" title="斜体 (Ctrl+I)"><i style="font-family:serif">I</i></button>
+  <button class="fb" data-act="fmtStrike" title="取り消し線"><s>S</s></button>
+  <button class="fb" data-act="fmtLink" title="リンク (Ctrl+K)">リンク</button>
+  <div class="menu"><button class="fb" data-menu title="表">▦ 表 ▾</button>
+    <div class="dropdown">
+      <button data-act="fmtTable">表を挿入…</button>
+      <button data-act="fmtTableFromTsv">選んだ範囲(Excelから貼り付けた表)を表にする</button>
+    </div></div>
+  <button class="fb" data-act="fmtClear" title="選んだ行の書式をクリア(記号を取り除く)">書式クリア</button>
+  <span class="spacer"></span>
+  <div class="seg" role="group" aria-label="表示の切り替え">
+    <button data-act="viewEdit" id="vEdit" title="記号のまま表示して編集">編集</button><button data-act="viewSplit" id="vSplit" title="左で編集、右に書式表示">分割</button><button data-act="viewFormat" id="vFormat" title="書式を付けて表示(読み取り専用)">書式</button>
+  </div>
+  <button class="fb" data-act="copyFormatted" title="Outlook・Word・Teams などに、書式付きで貼り付けられるようにコピー">書式付きでコピー</button>
+</div>
+
 <div class="banner ok" id="updateBanner"><span class="msg">新しいバージョンがあります。更新すると書きかけの内容は自動で引き継がれます。</span><button data-act="applyUpdate">今すぐ更新</button><button data-act="dismissUpdate">あとで</button></div>
 <div class="banner err" id="errBanner"><span class="msg" id="errBannerMsg"></span><button data-act="showLog">ログを見る</button><button data-act="dismissErr">閉じる</button></div>
 <div class="banner info" id="restoreBanner"><span class="msg" id="restoreMsg"></span><button data-act="restore">復元する</button><button data-act="restoreAll" id="restoreAllBtn">すべて復元</button><button data-act="drafts">一覧を見る</button><button data-act="discardDraft">破棄</button></div>
+<div class="banner info" id="tableBanner"><span class="msg">Excelなどの表を貼り付けました。書式付きの表にしますか?</span><button data-act="pasteAsTable">表にする</button><button data-act="dismissTable">このまま</button></div>
 <div class="banner warn" id="warnBanner"><span class="msg" id="warnMsg"></span><button data-act="dismissWarn">閉じる</button></div>
 
 <div class="findbar" id="findbar">
@@ -246,6 +324,7 @@
 
 <div class="editor-wrap" id="editorWrap">
   <div class="gutter" id="gutter" aria-hidden="true"><div class="gutter-inner" id="gutterInner"></div></div>
+  <div class="preview md" id="preview" tabindex="0" aria-label="書式表示"></div>
   <div class="dropzone" id="dropzone">ここにファイルをドロップして開く</div>
 </div>
 
@@ -273,7 +352,7 @@
 <!-- 未保存確認 -->
 <div class="overlay" id="confirmDlg">
   <div class="dialog" role="dialog" aria-modal="true" style="width:min(420px,100%)">
-    <header>下書きメモ帳</header>
+    <header>M’s Jotter</header>
     <div class="body"><p id="confirmMsg">変更内容を保存しますか?</p></div>
     <footer>
       <button class="btn primary" data-act="confirmSave">保存する</button>
@@ -342,6 +421,57 @@
   </div>
 </div>
 
+<!-- リンク -->
+<div class="overlay" id="linkDlg">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="linkTitle" style="width:min(460px,100%)">
+    <header id="linkTitle">リンクを挿入</header>
+    <div class="body">
+      <label class="desc">表示する文字</label>
+      <input type="text" id="linkText" style="width:100%;margin:4px 0 10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px 8px;font:inherit">
+      <label class="desc">アドレス(URL)</label>
+      <input type="text" id="linkUrl" placeholder="https://" style="width:100%;margin-top:4px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px 8px;font:inherit">
+    </div>
+    <footer><button class="btn" data-act="closeLink">キャンセル</button><button class="btn primary" data-act="applyLink">挿入</button></footer>
+  </div>
+</div>
+
+<!-- 表の挿入 -->
+<div class="overlay" id="tableDlg">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="tableTitle" style="width:min(380px,100%)">
+    <header id="tableTitle">表を挿入</header>
+    <div class="body">
+      <label>行(見出しを除く):<input type="number" id="tblRows" min="1" max="50" value="3" style="width:80px"></label><br><br>
+      <label>列:<input type="number" id="tblCols" min="1" max="20" value="3" style="width:80px"></label>
+    </div>
+    <footer><button class="btn" data-act="closeTable">キャンセル</button><button class="btn primary" data-act="applyTable">挿入</button></footer>
+  </div>
+</div>
+
+<!-- フォント -->
+<div class="overlay" id="fontDlg">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="fontTitle" style="width:min(560px,100%)">
+    <header id="fontTitle">フォント(文字種)</header>
+    <div class="body">
+      <div class="setting-row" style="border:none;padding:6px 0">
+        <div>フォント</div>
+        <select id="fontFamilySel" style="max-width:340px"></select>
+      </div>
+      <div class="setting-row" style="border:none;padding:6px 0">
+        <div>大きさ</div>
+        <select id="fontSizeSel"><option>12</option><option>14</option><option>16</option><option>18</option><option>20</option><option>24</option><option>28</option><option>32</option></select>
+      </div>
+      <div class="desc" style="margin:4px 0">見本:</div>
+      <div id="fontPreview" style="border:1px solid var(--border);border-radius:6px;padding:10px 12px;background:var(--bg);line-height:1.6;white-space:pre-wrap;min-height:96px"></div>
+      <p class="desc" style="margin:8px 0 0">「(このPCにはありません)」のフォントは選べません。一覧にないフォントは「PCのフォントを読み込む」で追加できます(ブラウザから許可を求められます。会社の設定で使えない場合があります)。</p>
+    </div>
+    <footer>
+      <button class="btn" data-act="loadLocalFonts" id="loadLocalFontsBtn">PCのフォントを読み込む</button>
+      <button class="btn" data-act="closeFont">キャンセル</button>
+      <button class="btn primary" data-act="applyFont">OK</button>
+    </footer>
+  </div>
+</div>
+
 <!-- 貼り付けの診断 -->
 <div class="overlay" id="pasteDiagDlg">
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="diagTitle" style="width:min(600px,100%)">
@@ -388,6 +518,10 @@
         <label class="switch"><input type="checkbox" id="setWrap"><span></span></label>
       </div>
       <div class="setting-row">
+        <div><div>フォント(文字種)</div><div class="desc" id="setFontName">自動</div></div>
+        <button class="btn" data-act="fontDlg">変更…</button>
+      </div>
+      <div class="setting-row">
         <div><div>文字の大きさ</div><div class="desc">既定のフォントサイズ(px)</div></div>
         <select id="setFont"><option>12</option><option>14</option><option selected>16</option><option>18</option><option>20</option><option>24</option></select>
       </div>
@@ -419,7 +553,7 @@
 
       <div class="section-title">ヘルプ</div>
       <p style="margin:6px 0"><a href="manual.html" target="_blank" rel="noopener">取扱説明書を開く</a></p>
-      <p class="desc" style="margin:4px 0">バージョン:<span id="verInfo"></span></p>
+      <p class="desc" style="margin:4px 0">M’s Jotter(エムズ・ジョッター)バージョン:<span id="verInfo"></span></p>
     </div>
     <footer><button class="btn primary" data-act="closeSettings">閉じる</button></footer>
   </div>
@@ -443,6 +577,7 @@
 <script>
 (() => {
   'use strict';
+  const APP_NAME = 'M’s Jotter';
   const APP_VERSION = '検討中(ver未確定)';
   const $ = id => document.getElementById(id);
   // 文書はタブごとに1つ。D = 表示中の文書、ed = その文書の入力欄(文書ごとに入力欄を分け、元に戻す履歴もタブごとに保つ)
@@ -526,7 +661,7 @@
 
   /* ================= 状態・設定 ================= */
   const state = { zoom:100, updating:false };
-  const defaults = { theme:'light', wrap:true, font:16, autosave:true, eol:'CRLF', enc:'UTF-8', status:true, restoreTabs:true, lineNo:false };
+  const defaults = { theme:'light', wrap:true, font:16, autosave:true, eol:'CRLF', enc:'UTF-8', status:true, restoreTabs:true, lineNo:false, fontFamily:'auto', fmtBar:true, view:'edit' };
   let settings = Object.assign({}, defaults);
   try { Object.assign(settings, JSON.parse(store.get(K.settings) || '{}')); } catch(e){}
   const saveSettings = () => store.set(K.settings, JSON.stringify(settings));
@@ -539,7 +674,7 @@
   function fmtDate(iso){ const d = new Date(iso); return `${d.getFullYear()}/${p2(d.getMonth()+1)}/${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`; }
   function headLabel(text, n){
     const nl = text.indexOf('\n');
-    const first = [...(nl === -1 ? text.slice(0, 200) : text.slice(0, Math.min(nl, 200))).trim()];
+    const first = [...stripLine(nl === -1 ? text.slice(0, 200) : text.slice(0, Math.min(nl, 200))).trim()]; // 書式の記号(# など)は見出しに出さない
     if (!first.length) return '無題';
     return '無題: ' + first.slice(0, n).join('') + (first.length > n ? '…' : '');
   }
@@ -554,7 +689,7 @@
     updateTab(D);
     // ブラウザのタブ見出し:表示中の文書名。ほかに未保存のタブがあれば件数も示す
     const others = docs.filter(d => d !== D && d.dirty).length;
-    document.title = (D.dirty ? '● ' : '') + docLabel(D) + (docs.length > 1 ? `(他 ${docs.length - 1} タブ${others ? '・未保存 ' + others : ''})` : '');
+    document.title = (D.dirty ? '● ' : '') + docLabel(D) + (docs.length > 1 ? `(他 ${docs.length - 1} タブ${others ? '・未保存 ' + others : ''})` : '') + ' - ' + APP_NAME;
   }
   let rafId = 0;
   function scheduleStatus(){ if (rafId) return; rafId = requestAnimationFrame(() => { rafId = 0; updateStatus(); if (!D.fileName) updateTitle(); }); }
@@ -577,7 +712,7 @@
     $('stZoom').textContent = state.zoom + '%';
     $('stEol').textContent = D.eol === 'CRLF' ? 'Windows (CRLF)' : 'Unix (LF)';
     $('stEnc').textContent = D.enc;
-    renderGutter(nls + 1, line);
+    renderGutter(nls + 1, line); updateFmtState();
     $('stSave').textContent = D.dirty ? '未保存の変更あり'
       : (D.savedAt ? `保存済み ${fmtDate(D.savedAt)}` : (D.fileName ? '変更なし' : '未保存'));
   }
@@ -597,12 +732,107 @@
     inner.style.transform = `translateY(${pt + first * lh - ed.scrollTop}px)`;
     g.style.width = `calc(${String(gutterTotal).length}ch + 20px)`; g.style.fontSize = cs.fontSize;
   }
+  /* ---- フォント(文字種) ---- */
+  const FONT_FALLBACK = '"BIZ UDGothic","BIZ UDゴシック","MS Gothic","ＭＳ ゴシック","Noto Sans Mono CJK JP","Noto Sans CJK JP",monospace';
+  const FONT_LIST = [
+    { id:'auto', label:'自動(日本語フォント優先)', names:[] },
+    { id:'BIZ UDGothic', label:'BIZ UDゴシック(等幅・読みやすい)', names:['BIZ UDGothic','BIZ UDゴシック'] },
+    { id:'BIZ UDPGothic', label:'BIZ UDPゴシック', names:['BIZ UDPGothic','BIZ UDPゴシック'] },
+    { id:'BIZ UDMincho', label:'BIZ UD明朝', names:['BIZ UDMincho','BIZ UDMincho Medium','BIZ UD明朝 Medium'] },
+    { id:'MS Gothic', label:'MS ゴシック(等幅)', names:['MS Gothic','ＭＳ ゴシック'] },
+    { id:'MS PGothic', label:'MS Pゴシック', names:['MS PGothic','ＭＳ Ｐゴシック'] },
+    { id:'MS Mincho', label:'MS 明朝', names:['MS Mincho','ＭＳ 明朝'] },
+    { id:'Yu Gothic', label:'游ゴシック', names:['Yu Gothic','游ゴシック'] },
+    { id:'Yu Mincho', label:'游明朝', names:['Yu Mincho','游明朝'] },
+    { id:'Meiryo', label:'メイリオ', names:['Meiryo','メイリオ'] },
+    { id:'UD Digi Kyokasho N-R', label:'UD デジタル 教科書体', names:['UD Digi Kyokasho N-R','UD デジタル 教科書体 N-R'] },
+    { id:'Noto Sans JP', label:'Noto Sans JP', names:['Noto Sans JP','Noto Sans CJK JP'] },
+    { id:'Consolas', label:'Consolas(英数字向け。日本語は他のフォントで表示)', names:['Consolas'] },
+    { id:'monospace', label:'ブラウザの等幅フォント', names:[] }
+  ];
+  const cleanFont = n => String(n).replace(/["\\;{}<>]/g, '').trim();
+  function fontCss(id){
+    if (!id || id === 'auto') return FONT_FALLBACK;
+    if (id === 'monospace') return 'monospace';
+    const f = FONT_LIST.find(x => x.id === id);
+    const names = f ? f.names : [cleanFont(id)];
+    return names.map(n => `"${n}"`).join(',') + ',' + FONT_FALLBACK;
+  }
+  function fontLabel(id){ const f = FONT_LIST.find(x => x.id === id); return f ? f.label.replace(/[\uFF08(].*$/, '') : id; }
+  // そのフォントがPCにあるか:無いときは代わりのフォントで描かれ、文字幅が変わらないことを利用して判定する
+  let fontCtx = null;
+  function fontAvailable(names){
+    if (!names.length) return true;
+    try {
+      fontCtx = fontCtx || document.createElement('canvas').getContext('2d');
+      const sample = 'mmmmmmmmmmlli1WQ①あア漢';
+      for (const base of ['monospace', 'serif', 'sans-serif']) {
+        fontCtx.font = `40px ${base}`; const w0 = fontCtx.measureText(sample).width;
+        for (const n of names) { fontCtx.font = `40px "${n}", ${base}`; if (fontCtx.measureText(sample).width !== w0) return true; }
+      }
+    } catch(e){ return true; }
+    return false;
+  }
+  let localFonts = [], fontBefore = null;
+  function fillFontSelect(cur){
+    const sel = $('fontFamilySel'); sel.textContent = '';
+    const g1 = document.createElement('optgroup'); g1.label = 'よく使うフォント';
+    FONT_LIST.forEach(f => { const o = document.createElement('option'); o.value = f.id;
+      const ok = fontAvailable(f.names); o.textContent = f.label + (ok ? '' : '(このPCにはありません)'); o.disabled = !ok; g1.appendChild(o); });
+    sel.appendChild(g1);
+    const extra = localFonts.slice();
+    if (cur && !FONT_LIST.some(f => f.id === cur) && !extra.includes(cur)) extra.unshift(cur);
+    if (extra.length) {
+      const g2 = document.createElement('optgroup'); g2.label = 'このPCのフォント';
+      extra.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; g2.appendChild(o); });
+      sel.appendChild(g2);
+    }
+    sel.value = cur || 'auto';
+  }
+  function updateFontPreview(){
+    const pv = $('fontPreview');
+    pv.style.fontFamily = fontCss($('fontFamilySel').value);
+    pv.style.fontSize = $('fontSizeSel').value + 'px';
+    pv.textContent = 'あいうえお アイウエオ 漢字の見本\nABCDE abcde 0123456789 (半角)\n①②③⑩⑳ ㈱ № ℡ ※ 〒 ～ ― … 「」【】';
+  }
+  function openFontDlg(){
+    fontBefore = { family: settings.fontFamily, size: settings.font };
+    fillFontSelect(settings.fontFamily);
+    const ss = $('fontSizeSel'); if (![...ss.options].some(o => o.value === String(settings.font))) { const o = document.createElement('option'); o.textContent = settings.font; ss.appendChild(o); }
+    ss.value = String(settings.font);
+    $('loadLocalFontsBtn').style.display = 'queryLocalFonts' in window ? '' : 'none';
+    updateFontPreview(); openDlg('fontDlg'); $('fontFamilySel').focus();
+  }
+  function applyFont(){
+    settings.fontFamily = $('fontFamilySel').value || 'auto';
+    settings.font = +$('fontSizeSel').value || 16;
+    saveSettings(); applySettings(); closeDlg('fontDlg');
+    toast(`フォントを「${fontLabel(settings.fontFamily)}」${settings.font}px にしました`);
+  }
+  async function loadLocalFonts(){
+    try {
+      const list = await window.queryLocalFonts();
+      localFonts = [...new Set(list.map(f => f.family))].filter(n => !FONT_LIST.some(f => f.names.includes(n))).sort((a, b) => a.localeCompare(b, 'ja'));
+      fillFontSelect($('fontFamilySel').value); updateFontPreview();
+      toast(`このPCのフォントを ${localFonts.length} 件 読み込みました`);
+    } catch(e){
+      toast('PCのフォント一覧を読み込めませんでした(許可されていないか、会社の設定で使えません)');
+    }
+  }
+  $('fontFamilySel').addEventListener('change', updateFontPreview);
+  $('fontSizeSel').addEventListener('change', updateFontPreview);
+
   function styleEditor(ta){
     ta.classList.toggle('nowrap', !settings.wrap);
     ta.setAttribute('wrap', settings.wrap ? 'soft' : 'off');
     ta.style.fontSize = (settings.font * state.zoom / 100) + 'px';
   }
   function applySettings(){
+    $('fmtbar').classList.toggle('hide', !settings.fmtBar);
+    $('mFmtBar').classList.toggle('on', settings.fmtBar);
+    applyView();
+    document.documentElement.style.setProperty('--editor-font', fontCss(settings.fontFamily));
+    $('setFontName').textContent = fontLabel(settings.fontFamily);
     let theme = settings.theme;
     if (theme === 'system') theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     document.body.dataset.theme = theme;
@@ -736,7 +966,7 @@
   function createDoc(){
     const ta = document.createElement('textarea');
     ta.spellcheck = false; ta.setAttribute('autocomplete', 'off'); ta.placeholder = PLACEHOLDER; ta.hidden = true;
-    $('editorWrap').insertBefore(ta, $('dropzone'));
+    $('editorWrap').insertBefore(ta, $('preview'));
     const d = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), ta,
       fileName:null, handle:null, lastModified:0, dirty:false, savedAt:null, eol:settings.eol, enc:settings.enc,
       changed:false, draftSaved:false, tabEl:null };
@@ -745,7 +975,10 @@
     // 前回のタブを再開したとき、まだ読み込んでいないファイルはクリック(またはキー入力)で読み込む
     ['mousedown','keydown'].forEach(ev => ta.addEventListener(ev, () => { if (d.lazy) loadLazy(d, true); }));
     ['keyup','click','select','focus'].forEach(ev => ta.addEventListener(ev, scheduleStatus));
-    ta.addEventListener('scroll', () => { if (settings.lineNo && d === D) requestAnimationFrame(() => renderGutter()); });
+    ta.addEventListener('scroll', () => {
+      if (settings.lineNo && d === D) requestAnimationFrame(() => renderGutter());
+      if (settings.view === 'split' && d === D) { const pv = $('preview'), r = ta.scrollTop / Math.max(1, ta.scrollHeight - ta.clientHeight); pv.scrollTop = r * (pv.scrollHeight - pv.clientHeight); }
+    });
     ta.addEventListener('keydown', e => { if (e.key === 'Tab' && !e.ctrlKey && !e.altKey) { e.preventDefault(); insertText('\t'); } });
     ta.addEventListener('wheel', e => { if (e.ctrlKey) { e.preventDefault(); zoom(e.deltaY < 0 ? 10 : -10); } }, { passive:false });
     // タブ見出し
@@ -778,7 +1011,7 @@
     d.tabEl.scrollIntoView({ block:'nearest', inline:'nearest' });
     updateTitle(); updateStatus();
     if ($('findbar').classList.contains('show')) updateFindCount();
-    ed.focus(); scheduleSession();
+    ed.focus(); scheduleSession(); renderPreview();
     if (d.lazy) loadLazy(d, false); // 許可済みなら黙って読み込む
   }
   function newTab(){ const d = createDoc(); activate(d); return d; }
@@ -1038,7 +1271,7 @@
         }
         if (!h || forceAs) {
           h = await window.showSaveFilePicker({ suggestedName: d.fileName || (headLabel(d.ta.value, 30).replace(/^無題: ?/, '').replace(/[\\/:*?"<>|…]/g, '') || '無題') + '.txt',
-            types:[{ description:'テキスト', accept:{ 'text/plain':['.txt'] } }] });
+            types:[{ description:'テキスト', accept:{ 'text/plain':['.txt'] } }, { description:'Markdown(書式付きテキスト)', accept:{ 'text/markdown':['.md'] } }] });
         }
         const w = await h.createWritable(); await w.write(bytes); await w.close();
         d.handle = h;
@@ -1170,6 +1403,286 @@
     if (target < ed.scrollTop || target > ed.scrollTop + ed.clientHeight - lineH*2) ed.scrollTop = Math.max(0, target - ed.clientHeight/3);
   }
 
+  /* ================= 書式(Markdown 記法) ================= */
+  // 書式は Windows 11 のメモ帳と同じく Markdown 記法の文字で表す(保存されるのは普通の文字)
+  const escHtml = t => t.replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  function safeUrl(u){ u = (u || '').trim(); return /^(https?:|mailto:)/i.test(u) ? u : null; } // javascript: などは使わせない
+  // 行内の書式(太字・斜体・取り消し線・コード・リンク)。先に HTML をエスケープしてから記号を変換する
+  function mdInline(src){
+    const slots = [], put = h => '\u0000' + (slots.push(h) - 1) + '\u0000';
+    let t = src.replace(/\u0000/g, '');
+    t = t.replace(/\\([\\`*_~\[\]()#+\-.!|>])/g, (m, c) => put(escHtml(c)));
+    t = t.replace(/`([^`\n]+)`/g, (m, c) => put('<code>' + escHtml(c) + '</code>'));
+    t = t.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, (m, txt, u) => { const url = safeUrl(u);
+      return url ? put(`<a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">`) + txt + put('</a>') : m; });
+    t = t.replace(/https?:\/\/[A-Za-z0-9\-._~:/?#@!$&*+,;=%]+/g, u => { const tail = (u.match(/[.,;:!?]+$/) || [''])[0]; const core = u.slice(0, u.length - tail.length);
+      return put(`<a href="${escHtml(core)}" target="_blank" rel="noopener noreferrer">${escHtml(core)}</a>`) + tail; });
+    t = escHtml(t);
+    t = t.replace(/\*\*(?=\S)([\s\S]*?\S)\*\*/g, '<strong>$1</strong>').replace(/(^|[^A-Za-z0-9_])__(?=\S)((?:(?!__)[\s\S])*?\S)__(?![A-Za-z0-9_])/g, '$1<strong>$2</strong>');
+    t = t.replace(/~~(?=\S)([\s\S]*?\S)~~/g, '<del>$1</del>');
+    t = t.replace(/\*(?=[^\s*])([^*]*?[^\s*])?\*/g, (m, x) => m.length > 2 ? '<em>' + m.slice(1, -1) + '</em>' : m);
+    return t.replace(/\u0000(\d+)\u0000/g, (m, i) => slots[+i]);
+  }
+  const MD_LIST = /^(\s*)([-*+]|\d{1,9}[.)])\s+(.*)$/;
+  const MD_SEP = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
+  const isTableSep = l => l.includes('|') && MD_SEP.test(l);
+  function splitRow(l){
+    let t = l.trim(); if (t.startsWith('|')) t = t.slice(1); if (t.endsWith('|') && !t.endsWith('\\|')) t = t.slice(0, -1);
+    return t.split(/(?<!\\)\|/).map(c => c.trim());
+  }
+  const indentW = s => s.replace(/\t/g, '    ').length;
+  function isBlockStart(lines, i){
+    const l = lines[i];
+    return /^\s{0,3}#{1,6}\s/.test(l) || /^\s*(```|~~~)/.test(l) || /^\s{0,3}([-*_])(\s*\1){2,}\s*$/.test(l) || /^\s{0,3}>/.test(l) || MD_LIST.test(l)
+      || (l.includes('|') && i + 1 < lines.length && isTableSep(lines[i + 1]));
+  }
+  function mdList(lines, start){
+    const items = []; let i = start;
+    while (i < lines.length) {
+      const l = lines[i], m = l.match(MD_LIST);
+      if (m) {
+        const it = { ind: indentW(m[1]), ord: /\d/.test(m[2]), num: parseInt(m[2], 10), text: m[3] };
+        if (items.length && it.ind <= items[0].ind && it.ord !== items[0].ord) break; // 箇条書き⇔番号付きが変わったら別のリスト
+        items.push(it); i++; continue;
+      }
+      if (!l.trim()) { if (i + 1 < lines.length && MD_LIST.test(lines[i + 1])) { i++; continue; } break; }
+      if (/^\s+\S/.test(l) && items.length) { items[items.length - 1].text += '\n' + l.trim(); i++; continue; }
+      break;
+    }
+    let html = ''; const stack = [];
+    for (const it of items) {
+      while (stack.length && it.ind < stack[stack.length - 1].ind) html += `</li></${stack.pop().tag}>`;
+      const top = stack[stack.length - 1];
+      if (!top || it.ind > top.ind) { const tag = it.ord ? 'ol' : 'ul';
+        html += `<${tag}${it.ord && it.num !== 1 ? ` start="${it.num}"` : ''}>`; stack.push({ ind: it.ind, tag }); }
+      else html += '</li>';
+      let t = it.text, pre = '', cls = '';
+      const tm = t.match(/^\[([ xX])\]\s+([\s\S]*)$/);
+      if (tm) { pre = `<input type="checkbox" disabled${tm[1] !== ' ' ? ' checked' : ''}> `; t = tm[2]; cls = ' class="task"'; }
+      html += `<li${cls}>` + pre + t.split('\n').map(mdInline).join('<br>');
+    }
+    while (stack.length) html += `</li></${stack.pop().tag}>`;
+    return { html, next: i };
+  }
+  function mdToHtml(md){
+    const lines = md.replace(/\r\n?/g, '\n').split('\n'), out = [];
+    let i = 0, m;
+    while (i < lines.length) {
+      const l = lines[i];
+      if (!l.trim()) { i++; continue; }
+      if ((m = l.match(/^\s*(```|~~~)/))) { const fence = m[1], buf = []; i++;
+        while (i < lines.length && !lines[i].trim().startsWith(fence)) buf.push(lines[i++]);
+        i++; out.push('<pre><code>' + escHtml(buf.join('\n')) + '</code></pre>'); continue; }
+      if ((m = l.match(/^\s{0,3}(#{1,6})\s+(.*?)(?:\s+#+)?\s*$/))) { const n = m[1].length; out.push(`<h${n}>${mdInline(m[2])}</h${n}>`); i++; continue; }
+      if (/^\s{0,3}([-*_])(\s*\1){2,}\s*$/.test(l)) { out.push('<hr>'); i++; continue; }
+      if (l.includes('|') && i + 1 < lines.length && isTableSep(lines[i + 1])) {
+        const head = splitRow(l);
+        const al = splitRow(lines[i + 1]).map(c => /^:.*:$/.test(c) ? 'center' : /:$/.test(c) ? 'right' : /^:/.test(c) ? 'left' : '');
+        i += 2; const rows = [];
+        while (i < lines.length && lines[i].trim() && lines[i].includes('|')) rows.push(splitRow(lines[i++]));
+        const cell = (tag, c, k) => `<${tag}${al[k] ? ` style="text-align:${al[k]}"` : ''}>${mdInline((c || '').replace(/\\\|/g, '|'))}</${tag}>`;
+        out.push('<table><thead><tr>' + head.map((c, k) => cell('th', c, k)).join('') + '</tr></thead><tbody>'
+          + rows.map(r => '<tr>' + head.map((_, k) => cell('td', r[k], k)).join('') + '</tr>').join('') + '</tbody></table>');
+        continue;
+      }
+      if (/^\s{0,3}>/.test(l)) { const buf = [];
+        while (i < lines.length && /^\s{0,3}>/.test(lines[i])) buf.push(lines[i++].replace(/^\s{0,3}>\s?/, ''));
+        out.push('<blockquote>' + mdToHtml(buf.join('\n')) + '</blockquote>'); continue; }
+      if (MD_LIST.test(l)) { const r = mdList(lines, i); out.push(r.html); i = r.next; continue; }
+      const buf = [l]; i++;
+      while (i < lines.length && lines[i].trim() && !isBlockStart(lines, i)) buf.push(lines[i++]);
+      out.push('<p>' + buf.map(mdInline).join('<br>') + '</p>'); // 改行はそのまま改行として表示(メモ帳らしく)
+    }
+    return out.join('\n');
+  }
+  // 記号を取り除いた普通の文字(書式のクリア・書式付きコピーの文字版で使う)
+  function stripLine(l){
+    let t = l.replace(/^\s{0,3}#{1,6}\s+/, '').replace(/^\s{0,3}>\s?/, '')
+      .replace(/^(\s*)(?:[-*+]\s+\[[ xX]\]\s+|[-*+]\s+|\d{1,9}[.)]\s+)/, '$1');
+    if (/^\s*\|.*\|\s*$/.test(t)) t = splitRow(t).map(c => c.replace(/\\\|/g, '|')).join('\t');
+    return t.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, '$1').replace(/(\*\*|__|~~)(?=\S)(.*?\S)\1/g, '$2')
+      .replace(/\*(?=[^\s*])([^*\n]*?[^\s*])?\*/g, m => m.length > 2 ? m.slice(1, -1) : m).replace(/`([^`\n]+)`/g, '$1');
+  }
+  const mdToPlain = md => md.replace(/\r\n?/g, '\n').split('\n').filter(l => !isTableSep(l)).map(stripLine).join('\n');
+
+  /* ---- 表示の切り替え(編集/分割/書式) ---- */
+  let previewTimer = 0;
+  const PREVIEW_MAX = 2 * 1024 * 1024;
+  function renderPreview(){
+    clearTimeout(previewTimer);
+    if (settings.view === 'edit' || !ed) return;
+    const pv = $('preview');
+    pv.style.fontSize = (settings.font * state.zoom / 100) + 'px';
+    if (ed.value.length > PREVIEW_MAX) { pv.innerHTML = '<p class="empty">文章が大きすぎるため、書式表示できません(2MBまで)。</p>'; return; }
+    pv.innerHTML = ed.value.trim() ? mdToHtml(ed.value) : '<p class="empty">ここに書式付きの表示が出ます。左の欄(または「編集」)で、ツールバーのボタンを使って書いてください。</p>';
+  }
+  const schedulePreview = () => { if (settings.view === 'edit') return; clearTimeout(previewTimer); previewTimer = setTimeout(renderPreview, 150); };
+  function applyView(){
+    const v = settings.view || 'edit';
+    $('editorWrap').dataset.view = v;
+    [['vEdit','edit'],['vSplit','split'],['vFormat','format']].forEach(([id, k]) => $(id).classList.toggle('on', v === k));
+    renderPreview();
+  }
+  function setView(v){
+    settings.view = v; saveSettings(); applyView();
+    if (v === 'format') $('preview').focus(); else if (ed) ed.focus();
+  }
+  // 書式表示(読み取り専用)のときに編集操作をしたら、分割表示に切り替えて編集できるようにする
+  function ensureEditable(){ if (settings.view === 'format') { setView('split'); toast('編集できるよう「分割」表示に切り替えました'); } }
+  $('preview').addEventListener('dblclick', () => { if (settings.view === 'format') setView('split'); });
+  $('preview').addEventListener('keydown', e => { if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { ensureEditable(); ed.focus(); } });
+
+  /* ---- ツールバーの操作(選んだ範囲・行に記号を付ける/外す) ---- */
+  function lineRange(){
+    const v = ed.value; const a = ed.selectionStart; let b = ed.selectionEnd;
+    if (b > a && v[b - 1] === '\n') b--;
+    const st = v.lastIndexOf('\n', a - 1) + 1; let en = v.indexOf('\n', b); if (en === -1) en = v.length;
+    return [st, en];
+  }
+  function replaceRange(st, en, text, sa, sb){
+    ed.focus(); ed.setSelectionRange(st, en);
+    if (ed.value.slice(st, en) !== text) insertText(text);
+    ed.setSelectionRange(sa == null ? st + text.length : sa, sb == null ? st + text.length : sb); scheduleStatus();
+  }
+  function mapLines(fn){
+    ensureEditable();
+    const [st, en] = lineRange(); const text = fn(ed.value.slice(st, en).split('\n')).join('\n');
+    replaceRange(st, en, text, st, st + text.length);
+  }
+  function fmtHeading(n){
+    mapLines(lines => {
+      const ne = lines.filter(l => l.trim());
+      const all = n > 0 && ne.length && ne.every(l => ((l.match(/^\s{0,3}(#{1,6})\s/) || [])[1] || '').length === n);
+      return lines.map(l => { if (!l.trim()) return l; const body = l.replace(/^\s{0,3}#{1,6}\s+/, ''); return n && !all ? '#'.repeat(n) + ' ' + body : body; });
+    });
+  }
+  const LIST_MARK = /^(?:[-*+]\s+\[[ xX]\]\s+|[-*+]\s+|\d{1,9}[.)]\s+)/;
+  function fmtList(kind){
+    mapLines(lines => {
+      const is = l => kind === 'ul' ? /^\s*[-*+]\s+(?!\[[ xX]\]\s)/.test(l) : kind === 'ol' ? /^\s*\d{1,9}[.)]\s+/.test(l)
+        : kind === 'task' ? /^\s*[-*+]\s+\[[ xX]\]\s+/.test(l) : /^\s{0,3}>/.test(l);
+      const ne = lines.filter(l => l.trim()), all = ne.length && ne.every(is);
+      let n = 0;
+      return lines.map(l => {
+        if (!l.trim()) return l;
+        if (kind === 'quote') return all ? l.replace(/^\s{0,3}>\s?/, '') : '> ' + l;
+        const ind = l.match(/^\s*/)[0], body = l.slice(ind.length).replace(LIST_MARK, '');
+        if (all) return ind + body;
+        n++; return ind + (kind === 'ul' ? '- ' : kind === 'ol' ? n + '. ' : '- [ ] ') + body;
+      });
+    });
+  }
+  function isWrapped(t, mk){
+    if (t.length <= mk.length * 2 || !t.startsWith(mk) || !t.endsWith(mk)) return false;
+    if (mk === '*') return !t.startsWith('**') || t.startsWith('***');
+    return true;
+  }
+  function wrapCore(t, mk){ // 前後の空白は記号の外に出す(記号の内側に空白があると書式にならないため)
+    if (!t.trim()) return t;
+    const lead = t.match(/^\s*/)[0], trail = t.match(/\s*$/)[0], core = t.slice(lead.length, t.length - trail.length);
+    return isWrapped(core, mk) ? lead + core.slice(mk.length, -mk.length) + trail : lead + mk + core + mk + trail;
+  }
+  function fmtWrap(mk, ph){
+    ensureEditable();
+    const v = ed.value, a = ed.selectionStart, b = ed.selectionEnd, L = mk.length;
+    if (a === b) { replaceRange(a, b, mk + ph + mk, a + L, a + L + ph.length); return; } // 何も選んでいなければ見本の文字を入れて選択
+    const sel = v.slice(a, b);
+    if (sel.includes('\n')) { const out = sel.split('\n').map(l => wrapCore(l, mk)).join('\n'); replaceRange(a, b, out, a, a + out.length); return; }
+    let around = v.slice(a - L, a) === mk && v.slice(b, b + L) === mk;
+    if (around && mk === '*') { const bb = v[a - 2] === '*', aa = v[b + 1] === '*'; if (bb !== aa || (bb && v[a - 3] !== '*')) around = false; }
+    if (around && !isWrapped(sel, mk)) { replaceRange(a - L, b + L, sel, a - L, b - L); return; } // 外側の記号を外す
+    const out = wrapCore(sel, mk); replaceRange(a, b, out, a, a + out.length);
+  }
+  function openLinkDlg(){
+    ensureEditable();
+    const sel = ed.value.slice(ed.selectionStart, ed.selectionEnd);
+    const isUrl = /^\s*(https?:\/\/|www\.)\S+\s*$/i.test(sel);
+    $('linkText').value = isUrl ? '' : sel.split('\n')[0]; $('linkUrl').value = isUrl ? sel.trim() : '';
+    openDlg('linkDlg'); (isUrl || !sel ? $('linkText') : $('linkUrl')).focus();
+  }
+  function applyLink(){
+    let url = $('linkUrl').value.trim(); const txt = $('linkText').value.trim();
+    if (!url) { toast('アドレス(URL)を入力してください'); return; }
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) url = (url.includes('@') && !url.includes('/') ? 'mailto:' : 'https://') + url;
+    if (!safeUrl(url)) { toast('使えるのは http:// ・ https:// ・ mailto: のアドレスだけです'); return; }
+    closeDlg('linkDlg');
+    const label = (txt || url).replace(/[\[\]]/g, m => '\\' + m);
+    const a = ed.selectionStart, b = ed.selectionEnd, out = `[${label}](${url.replace(/[()\s]/g, encodeURIComponent)})`;
+    replaceRange(a, b, out, a + out.length, a + out.length);
+  }
+  const mdCell = c => c.replace(/\r?\n/g, ' ').replace(/\|/g, '\\|').trim();
+  function tableMd(rows){
+    const cols = Math.max(...rows.map(r => r.length));
+    const line = r => '| ' + Array.from({ length: cols }, (_, k) => mdCell(r[k] || '') || ' ').join(' | ') + ' |';
+    return [line(rows[0]), '| ' + Array(cols).fill('---').join(' | ') + ' |', ...rows.slice(1).map(line)].join('\n');
+  }
+  // Excel の表(タブ区切り。セル内改行は "..." で囲まれる)を行・列に分ける
+  function parseTsv(t){
+    const rows = []; let row = [], cell = '', q = false;
+    t = t.replace(/\r\n?/g, '\n').replace(/\n$/, '');
+    for (let i = 0; i < t.length; i++) {
+      const c = t[i];
+      if (q) { if (c === '"') { if (t[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; continue; }
+      if (c === '"' && cell === '') { q = true; continue; }
+      if (c === '\t') { row.push(cell); cell = ''; continue; }
+      if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; continue; }
+      cell += c;
+    }
+    row.push(cell); rows.push(row);
+    return rows;
+  }
+  function insertBlock(block){ // 前後を空行で区切って挿入する
+    const v = ed.value, a = ed.selectionStart, b = ed.selectionEnd;
+    const pre = a > 0 && v[a - 1] !== '\n' ? '\n\n' : (a > 1 && v[a - 2] !== '\n' ? '\n' : '');
+    const post = b < v.length && v[b] !== '\n' ? '\n\n' : (b < v.length - 1 && v[b + 1] !== '\n' ? '\n' : '');
+    const out = pre + block + post; replaceRange(a, b, out, a + pre.length, a + pre.length + block.length);
+  }
+  function applyTable(){
+    const r = Math.min(50, Math.max(1, +$('tblRows').value || 3)), c = Math.min(20, Math.max(1, +$('tblCols').value || 3));
+    closeDlg('tableDlg'); ensureEditable();
+    const rows = [Array.from({ length: c }, (_, k) => '見出し' + (k + 1)), ...Array.from({ length: r }, () => Array(c).fill(''))];
+    insertBlock(tableMd(rows));
+  }
+  function tableFromRange(a, b){
+    const src = ed.value.slice(a, b);
+    if (!src.includes('\t')) { toast('タブ区切りの表(Excelからコピーした範囲など)を選んでから使ってください'); return false; }
+    const rows = parseTsv(src); ed.setSelectionRange(a, b); insertBlock(tableMd(rows)); toast(`${rows.length} 行の表にしました`); return true;
+  }
+  function fmtClear(){ mapLines(lines => lines.filter(l => !isTableSep(l)).map(stripLine)); }
+  // 見出しボタンの表示を、カーソルのある行に合わせる
+  function updateFmtState(){
+    if (!settings.fmtBar || !ed) return;
+    const v = ed.value, st = v.lastIndexOf('\n', ed.selectionStart - 1) + 1;
+    const m = v.slice(st, st + 8).match(/^\s{0,3}(#{1,6})\s/);
+    $('fbHead').textContent = (m ? '見出し' + m[1].length : '標準') + ' ▾';
+  }
+  // 書式付きでコピー(HTML と、記号を外した文字の両方をクリップボードへ)
+  async function copyFormatted(){
+    const sel = ed.selectionStart !== ed.selectionEnd, src = sel ? ed.value.slice(ed.selectionStart, ed.selectionEnd) : ed.value;
+    if (!src.trim()) { toast('コピーする内容がありません'); return; }
+    const box = document.createElement('div'); box.innerHTML = mdToHtml(src);
+    box.querySelectorAll('input[type=checkbox]').forEach(cb => cb.replaceWith(cb.checked ? '☑' : '☐'));
+    box.querySelectorAll('table').forEach(t => t.setAttribute('style', 'border-collapse:collapse'));
+    box.querySelectorAll('th,td').forEach(c => c.setAttribute('style', (c.getAttribute('style') || '') + ';border:1px solid #999;padding:4px 8px'));
+    box.querySelectorAll('th').forEach(c => c.setAttribute('style', c.getAttribute('style') + ';background:#f2f2f2'));
+    const html = `<div style="font-family:'Yu Gothic UI','Meiryo',sans-serif;color:#000">${box.innerHTML}</div>`, plain = mdToPlain(src);
+    try {
+      if (!(navigator.clipboard && window.ClipboardItem)) throw new Error('unsupported');
+      await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([html], { type:'text/html' }), 'text/plain': new Blob([plain], { type:'text/plain' }) })]);
+    } catch(e){
+      const h = document.createElement('div'); h.innerHTML = html; h.style.cssText = 'position:fixed;left:-99999px;top:0;background:#fff';
+      document.body.appendChild(h); const r = document.createRange(); r.selectNodeContents(h);
+      const s2 = getSelection(); s2.removeAllRanges(); s2.addRange(r);
+      const ok = document.execCommand('copy'); s2.removeAllRanges(); h.remove();
+      if (!ok) { toast('コピーできませんでした(会社の設定で制限されている可能性があります)'); return; }
+    }
+    if (ed) ed.focus();
+    toast(`${sel ? '選んだ範囲' : '全体'}を書式付きでコピーしました。Outlook・Word・Teams などに貼り付けられます`);
+  }
+  // ツールバーのボタンを押しても本文の選択範囲が外れないようにする
+  $('fmtbar').addEventListener('mousedown', e => { if (e.target.closest('button')) e.preventDefault(); });
+  let lastTablePaste = null;
+
   /* ================= 定型文 ================= */
   const SNIP_KEY = 'np.snippets';
   const SNIP_DEFAULT = [
@@ -1190,7 +1703,7 @@
       const li = document.createElement('li');
       const b = document.createElement('button'); b.className = 'open'; b.textContent = sn.name; b.title = sn.text;
       const dsc = document.createElement('div'); dsc.className = 'desc'; dsc.textContent = sn.text.replace(/\s+/g, ' ').slice(0, 50); b.appendChild(dsc);
-      b.addEventListener('click', () => { closeDlg('snipDlg'); insertText(fillSnip(sn.text)); });
+      b.addEventListener('click', () => { closeDlg('snipDlg'); ensureEditable(); insertText(fillSnip(sn.text)); });
       const edb = document.createElement('button'); edb.className = 'rm'; edb.title = '編集'; edb.textContent = '✎';
       edb.addEventListener('click', () => { snipEditing = i; $('snipName').value = sn.name; $('snipText').value = sn.text;
         $('snipFormTitle').textContent = `「${sn.name}」を編集`; $('snipSaveBtn').textContent = '更新'; $('snipCancelBtn').style.display = ''; $('snipText').focus(); });
@@ -1224,7 +1737,11 @@
   }
 
   /* ================= 印刷 ================= */
-  function fillPrint(){ $('printArea').textContent = ed.value || ' '; }
+  function fillPrint(){
+    const pa = $('printArea');
+    if (settings.view !== 'edit') { pa.className = 'md'; pa.innerHTML = mdToHtml(ed.value); } // 書式表示中は書式付きで印刷
+    else { pa.className = ''; pa.textContent = ed.value || ' '; }
+  }
   window.addEventListener('beforeprint', fillPrint);
   window.addEventListener('afterprint', () => { $('printArea').textContent = ''; });
 
@@ -1463,6 +1980,21 @@
     save: () => save(false),
     saveAs: () => save(true),
     saveAll,
+    fmtH0: () => fmtHeading(0), fmtH1: () => fmtHeading(1), fmtH2: () => fmtHeading(2), fmtH3: () => fmtHeading(3), fmtH4: () => fmtHeading(4),
+    fmtUl: () => fmtList('ul'), fmtOl: () => fmtList('ol'), fmtTask: () => fmtList('task'), fmtQuote: () => fmtList('quote'),
+    fmtBold: () => fmtWrap('**', '太字'), fmtItalic: () => fmtWrap('*', '斜体'), fmtStrike: () => fmtWrap('~~', '取り消し線'),
+    fmtLink: openLinkDlg, applyLink, closeLink: () => closeDlg('linkDlg'),
+    fmtTable: () => { ensureEditable(); openDlg('tableDlg'); $('tblRows').focus(); }, applyTable, closeTable: () => closeDlg('tableDlg'),
+    fmtTableFromTsv: () => { ensureEditable(); tableFromRange(ed.selectionStart, ed.selectionEnd); },
+    fmtClear,
+    pasteAsTable: () => { $('tableBanner').classList.remove('show'); const t = lastTablePaste; lastTablePaste = null;
+      if (t && t.doc === D && ed.value.slice(t.a, t.a + t.text.length) === t.text) { ensureEditable(); tableFromRange(t.a, t.a + t.text.length); }
+      else toast('貼り付けた後に内容が変わったため、表にできませんでした。範囲を選んで「表 → 選んだ範囲を表にする」を使ってください'); },
+    dismissTable: () => { $('tableBanner').classList.remove('show'); lastTablePaste = null; },
+    viewEdit: () => setView('edit'), viewSplit: () => setView('split'), viewFormat: () => setView('format'),
+    copyFormatted,
+    toggleFmtBar: () => { settings.fmtBar = !settings.fmtBar; saveSettings(); applySettings(); },
+    fontDlg: openFontDlg, applyFont, loadLocalFonts, closeFont: () => closeDlg('fontDlg'),
     pasteDiag: openPasteDiag, closeDiag: () => closeDlg('pasteDiagDlg'),
     copyDiag: () => { const r = document.createRange(); r.selectNodeContents($('diagOut')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
       toast(document.execCommand('copy') ? '診断結果をコピーしました' : '結果を選択しました。Ctrl+C でコピーしてください'); },
@@ -1480,7 +2012,7 @@
     replaceOne, replaceAll,
     goto: openGoto, doGoto, closeGoto: () => closeDlg('gotoDlg'),
     selectAll: () => { ed.focus(); ed.select(); },
-    timestamp,
+    timestamp: () => { ensureEditable(); timestamp(); },
     zoomIn: () => zoom(10), zoomOut: () => zoom(-10), zoomReset: () => zoom(0),
     toggleWrap: () => { settings.wrap = !settings.wrap;
       if (settings.wrap && settings.lineNo) { settings.lineNo = false; toast('折り返し表示中は行番号を表示できないため、行番号をオフにしました'); }
@@ -1555,7 +2087,7 @@
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (settings.theme === 'system') applySettings(); });
 
   /* ================= エディター入力 ================= */
-  function onInput(d){ d = d || D; d.changed = true; if (!d.dirty) { d.dirty = true; updateTitle(); } scheduleStatus(); scheduleAutosave(); }
+  function onInput(d){ d = d || D; d.changed = true; if (!d.dirty) { d.dirty = true; updateTitle(); } scheduleStatus(); scheduleAutosave(); if (d === D) schedulePreview(); }
   document.addEventListener('selectionchange', () => { if (ed && document.activeElement === ed) scheduleStatus(); });
 
   /* ================= 貼り付け ================= */
@@ -1603,14 +2135,20 @@
     const otherField = !isEditor && t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
     if (otherField) return; // 検索欄などへの貼り付けは通常どおり
     if (ed.readOnly) return;
+    ensureEditable();
     const cd = e.clipboardData;
     const types = cd ? [...cd.types] : [];
     let text = cd ? cd.getData('text/plain') : '';
     if (!text && cd && types.includes('text/html')) text = htmlToText(cd.getData('text/html'));
     e.preventDefault(); // ブラウザ任せにせず、届いた文字をこのアプリが確実に挿入する(元に戻すも効く)
     if (!text) { explainEmptyClipboard(types); return; }
-    const before = ed.value.length;
+    const before = ed.value.length, at = ed.selectionStart;
     pasteText(text); // 入力欄の外(ボタンなど)にカーソルがあっても、表示中のタブに貼り付ける
+    // Excel などの表(タブ区切りで2行以上)なら、書式付きの表にするか尋ねる
+    const norm = text.replace(/\r\n?/g, '\n');
+    if (settings.fmtBar && norm.includes('\t') && norm.replace(/\n$/, '').includes('\n')) {
+      lastTablePaste = { doc: D, a: at, text: norm }; $('tableBanner').classList.add('show');
+    }
     if (ed.value.length === before && text.length) { showWarn('貼り付けた文字を本文に入れられませんでした。' + DLP_HINT); logError('貼り付け', '挿入に失敗'); }
   });
 
@@ -1680,13 +2218,13 @@
       if ($('askDlg').classList.contains('show')) return run('askCancel');
       if ($('confirmDlg').classList.contains('show')) return run('confirmCancel');
       closeTabMenu();
-      ['gotoDlg','settingsDlg','recentDlg','encDlg','draftsDlg','snipDlg','pasteDiagDlg'].forEach(closeDlg);
+      ['gotoDlg','settingsDlg','recentDlg','encDlg','draftsDlg','snipDlg','pasteDiagDlg','fontDlg','linkDlg','tableDlg'].forEach(closeDlg);
       if ($('findbar').classList.contains('show')) actions.closeFind();
       closeMenus(); return;
     }
     if (document.querySelector('.overlay.show')) return; // ダイアログ表示中は、裏の文書を操作するショートカットを無効にする
     if (e.key === 'F3') return run(e.shiftKey ? 'findPrev' : 'findNext');
-    if (e.key === 'F5' && !c) return run('timestamp');
+    if (e.key === 'F5' && !c) { ensureEditable(); return run('timestamp'); }
     // Ctrl+N はChromeが新しいウィンドウ用に予約しておりページでは受け取れないため Alt+N を使う
     if (e.altKey && !c && k === 'n') return run('new');
     // タブ操作:Ctrl+W / Ctrl+Tab はブラウザが使うため Alt を使う
@@ -1700,9 +2238,14 @@
     if (k === 'o' && e.shiftKey) return run('recent');
     if (k === 'o') return run('open');
     if (k === 'p') return run('print');
-    if (k === 'f') return run('find');
-    if (k === 'h') return run('replace');
-    if (k === 'g') return run('goto');
+    if (e.target === ed && !e.shiftKey && !e.altKey) {
+      if (k === 'b') return run('fmtBold');
+      if (k === 'i') return run('fmtItalic');
+      if (k === 'k') return run('fmtLink');
+    }
+    if (k === 'f') { ensureEditable(); return run('find'); }
+    if (k === 'h') { ensureEditable(); return run('replace'); }
+    if (k === 'g') { ensureEditable(); return run('goto'); }
     if (k === '=' || k === '+' || k === ';') return run('zoomIn');
     if (k === '-') return run('zoomOut');
     if (k === '0') return run('zoomReset');
@@ -1754,7 +2297,7 @@
   // 動作確認用の窓口(URL に ?selftest を付けたときだけ有効)
   if (/[?&]selftest\b/.test(location.search)) {
     window.__np = { loadHandle: async h => { const f = await h.getFile(); await loadBuffer(await f.arrayBuffer(), f.name, h, f.lastModified); },
-      save, state, idb, tabId, writeDraft, docs, encodeText, get D(){ return D; } };
+      save, state, idb, tabId, writeDraft, docs, encodeText, mdToHtml, mdToPlain, get D(){ return D; } };
   }
 
   startup().catch(e => logError('起動', e));

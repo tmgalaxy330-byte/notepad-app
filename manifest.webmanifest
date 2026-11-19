@@ -1,7 +1,7 @@
 {
-  "name": "下書きメモ帳",
-  "short_name": "メモ帳",
-  "description": "Windowsのメモ帳のように使える、オフライン対応の下書きツール",
+  "name": "M’s Jotter",
+  "short_name": "M’s Jotter",
+  "description": "M’s Jotter(エムズ・ジョッター):Windowsのメモ帳のように使える、オフライン対応の下書きツール",
   "lang": "ja",
   "start_url": "./",
   "scope": "./",
