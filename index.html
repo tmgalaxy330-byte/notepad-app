@@ -4,8 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#005fb8">
-<meta name="description" content="Windowsのメモ帳のように使える、オフライン対応の下書きツール">
-<title>無題</title>
+<meta name="description" content="M’s Jotter(エムズ・ジョッター):Windowsのメモ帳のように使える、オフライン対応の下書きツール">
+<meta name="application-name" content="M’s Jotter">
+<meta name="apple-mobile-web-app-title" content="M’s Jotter">
+<title>M’s Jotter</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -350,7 +352,7 @@
 <!-- 未保存確認 -->
 <div class="overlay" id="confirmDlg">
   <div class="dialog" role="dialog" aria-modal="true" style="width:min(420px,100%)">
-    <header>下書きメモ帳</header>
+    <header>M’s Jotter</header>
     <div class="body"><p id="confirmMsg">変更内容を保存しますか?</p></div>
     <footer>
       <button class="btn primary" data-act="confirmSave">保存する</button>
@@ -551,7 +553,7 @@
 
       <div class="section-title">ヘルプ</div>
       <p style="margin:6px 0"><a href="manual.html" target="_blank" rel="noopener">取扱説明書を開く</a></p>
-      <p class="desc" style="margin:4px 0">バージョン:<span id="verInfo"></span></p>
+      <p class="desc" style="margin:4px 0">M’s Jotter(エムズ・ジョッター)バージョン:<span id="verInfo"></span></p>
     </div>
     <footer><button class="btn primary" data-act="closeSettings">閉じる</button></footer>
   </div>
@@ -575,6 +577,7 @@
 <script>
 (() => {
   'use strict';
+  const APP_NAME = 'M’s Jotter';
   const APP_VERSION = '検討中(ver未確定)';
   const $ = id => document.getElementById(id);
   // 文書はタブごとに1つ。D = 表示中の文書、ed = その文書の入力欄(文書ごとに入力欄を分け、元に戻す履歴もタブごとに保つ)
@@ -686,7 +689,7 @@
     updateTab(D);
     // ブラウザのタブ見出し:表示中の文書名。ほかに未保存のタブがあれば件数も示す
     const others = docs.filter(d => d !== D && d.dirty).length;
-    document.title = (D.dirty ? '● ' : '') + docLabel(D) + (docs.length > 1 ? `(他 ${docs.length - 1} タブ${others ? '・未保存 ' + others : ''})` : '');
+    document.title = (D.dirty ? '● ' : '') + docLabel(D) + (docs.length > 1 ? `(他 ${docs.length - 1} タブ${others ? '・未保存 ' + others : ''})` : '') + ' - ' + APP_NAME;
   }
   let rafId = 0;
   function scheduleStatus(){ if (rafId) return; rafId = requestAnimationFrame(() => { rafId = 0; updateStatus(); if (!D.fileName) updateTitle(); }); }
