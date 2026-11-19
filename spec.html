@@ -159,6 +159,11 @@
 <li>書式付きでコピー:ClipboardItem で text/html(表は枠線をインライン指定、チェックは☐☑)と text/plain(記号を外した文字)を書き込む。使えない場合は選択+execCommand('copy')。</li>
 <li>Excel の表の貼り付け(タブ区切り2行以上)では「表にしますか」バナーを出し、引用符で囲まれたセル内改行・| を処理して表にする。</li>
 </ul>
+<h3>書式ツールバーの表示</h3>
+<ul>
+<li>settings.fmtBar(表示する/しない)、settings.fmtPin(既定 true=常に表示)。ピンを外すと .collapsed で非表示にし、メニュー行に「書式 ▾」を出す。押すと .floating(position:fixed、メニュー行の直下)で本文に重ねて表示し、ツールバー外の mousedown・Esc で閉じる。Ctrl+F1 でピン留めを切り替える。</li>
+<li>上部(タブ・メニュー・ツールバー)が隠れない対策:html/body を overflow:hidden とし、window・body のスクロールが起きたら 0 に戻す。viewport に interactive-widget=resizes-content を指定し、Android Chrome 108 以降で画面キーボード表示時にレイアウト全体を縮める(既定の resizes-visual では画面がずれて上部が隠れる)。</li>
+</ul>
 <h3>フォント</h3>
 <ul>
 <li>settings.fontFamily(既定 auto)を CSS 変数 --editor-font に反映(本文・行番号・書式表示・印刷)。auto と各フォントの後ろに "BIZ UDGothic","MS Gothic","Noto Sans CJK JP",monospace を代替として付ける(記号が英字用フォントの代替字形で小さくならないよう日本語フォントを優先)。</li>
@@ -257,6 +262,7 @@
 <h2 id="history">15. 更新履歴</h2>
 <table>
 <tr><th>バージョン</th><th>日付</th><th>内容</th></tr>
+<tr><td>検討中(ver未確定)</td><td>2026-11-19</td><td>書式ツールバーのピン留め、上部が隠れない対策(スクロール抑止・interactive-widget)。</td></tr>
 <tr><td>検討中(ver未確定)</td><td>2026-11-19</td><td>アプリ名を「M’s Jotter」に変更(URL・保存データのキーは変更なし)。</td></tr>
 <tr><td>検討中(ver未確定)</td><td>2026-11-19</td><td>書式ツールバー・表示モード・書式付きコピー・表変換、フォント選択、既定フォントを日本語優先に。</td></tr>
 <tr><td>検討中(ver未確定)</td><td>2026-11-19</td><td>タブの視認性改善。貼り付けをアプリ側で挿入、貼り付けが届かない場合の検出と表示、貼り付けの診断を追加。</td></tr>
