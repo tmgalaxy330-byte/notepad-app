@@ -13,6 +13,7 @@
   :root{
     --bg:#f3f3f3; --surface:#ffffff; --text:#1b1b1b; --sub:#5f5f5f;
     --border:#e0e0e0; --hover:#e9e9e9; --accent:#005fb8; --accent-text:#fff;
+    --tab-bg:#e3e3e3; --tab-hover:#d6d6d6; --tab-border:#b9b9b9; --tab-text:#3b3b3b;
     --warn-bg:#fff4ce; --warn-text:#5c4300; --err-bg:#fde7e9; --err-text:#7a1020;
     --info-bg:#e6f0fa; --info-text:#0b3a66; --ok-bg:#dff6dd; --ok-text:#0e4d0b;
     --shadow:0 8px 24px rgba(0,0,0,.14);
@@ -21,6 +22,7 @@
   [data-theme="dark"]{
     --bg:#202020; --surface:#272727; --text:#e8e8e8; --sub:#a8a8a8;
     --border:#3a3a3a; --hover:#333333; --accent:#4cc2ff; --accent-text:#000;
+    --tab-bg:#2e2e2e; --tab-hover:#3a3a3a; --tab-border:#5a5a5a; --tab-text:#cfcfcf;
     --warn-bg:#433519; --warn-text:#ffe08a; --err-bg:#442726; --err-text:#ffb4b4;
     --info-bg:#1d3346; --info-text:#b9dcff; --ok-bg:#1f3a1d; --ok-text:#b6f0b0;
     --shadow:0 8px 24px rgba(0,0,0,.5);
@@ -30,16 +32,17 @@
   body{background:var(--bg);color:var(--text);font-family:"Segoe UI","Yu Gothic UI","Meiryo",sans-serif;font-size:14px;display:flex;flex-direction:column;overflow:hidden}
   button{font:inherit;color:inherit}
 
-  .titlebar{display:flex;align-items:flex-end;gap:6px;padding:6px 12px 0;background:var(--bg);min-width:0}
+  .titlebar{display:flex;align-items:flex-end;gap:6px;padding:6px 12px 0;background:var(--bg);min-width:0;border-bottom:1px solid var(--tab-border)}
   .titlebar img{width:18px;height:18px;flex:none;align-self:center;margin-bottom:4px}
   /* タブ(1つの画面で複数の文書を切り替える) */
-  .tabs{display:flex;gap:2px;overflow-x:auto;min-width:0;scrollbar-width:thin}
-  .tab{display:flex;align-items:center;gap:4px;max-width:220px;min-width:90px;padding:6px 6px 6px 12px;border-radius:8px 8px 0 0;cursor:pointer;font-size:13px;color:var(--sub);user-select:none;flex:none}
-  .tab:hover{background:var(--hover)}
-  .tab.active{background:var(--surface);color:var(--text);box-shadow:0 -1px 0 var(--border) inset}
+  .tabs{display:flex;gap:4px;overflow-x:auto;min-width:0;scrollbar-width:thin;margin-bottom:-1px}
+  /* タブは枠と背景色で区切り、表示中のタブは上端の色帯・白い背景・太字で区別する(誤操作防止) */
+  .tab{display:flex;align-items:center;gap:4px;max-width:220px;min-width:90px;padding:5px 6px 6px 12px;border:1px solid var(--tab-border);border-bottom:none;border-top:3px solid transparent;border-radius:8px 8px 0 0;background:var(--tab-bg);cursor:pointer;font-size:13px;color:var(--tab-text);user-select:none;flex:none;position:relative}
+  .tab:hover{background:var(--tab-hover)}
+  .tab.active{background:var(--surface);color:var(--text);font-weight:600;border-top-color:var(--accent);border-bottom:1px solid var(--surface);z-index:1}
   .tab .lbl{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .tab .x{background:none;border:none;border-radius:4px;padding:0 6px;cursor:pointer;color:var(--sub);line-height:20px}
-  .tab .x:hover{background:var(--border);color:var(--text)}
+  .tab .x{background:none;border:none;border-radius:4px;padding:0 6px;cursor:pointer;color:inherit;line-height:20px;font-weight:400}
+  .tab .x:hover{background:#c42b1c;color:#fff}
   .tab-add{background:none;border:none;border-radius:6px;padding:4px 10px;margin-bottom:2px;cursor:pointer;font-size:16px;flex:none}
   .tab-add:hover{background:var(--hover)}
   .tab.dragging{opacity:.4}
@@ -191,6 +194,7 @@
       <button data-act="cut">切り取り<span class="kbd">Ctrl+X</span></button>
       <button data-act="copy">コピー<span class="kbd">Ctrl+C</span></button>
       <button data-act="paste">貼り付け<span class="kbd">Ctrl+V</span></button>
+      <button data-act="pasteDiag">貼り付けの診断…</button>
       <hr>
       <button data-act="find">検索<span class="kbd">Ctrl+F</span></button>
       <button data-act="replace">置換<span class="kbd">Ctrl+H</span></button>
@@ -334,6 +338,22 @@
       <button class="btn" data-act="snipCancelEdit" id="snipCancelBtn" style="display:none">編集をやめる</button>
       <button class="btn" data-act="snipSave" id="snipSaveBtn">追加</button>
       <button class="btn primary" data-act="closeSnip">閉じる</button>
+    </footer>
+  </div>
+</div>
+
+<!-- 貼り付けの診断 -->
+<div class="overlay" id="pasteDiagDlg">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="diagTitle" style="width:min(600px,100%)">
+    <header id="diagTitle">貼り付けの診断</header>
+    <div class="body">
+      <p class="desc" style="margin-top:0">貼り付けたときに、ブラウザからこのアプリへ何が届いているかを調べます。ここに貼り付けた内容は本文には入りません。</p>
+      <textarea id="diagBox" rows="2" placeholder="ここをクリックして Ctrl+V" style="width:100%;background:var(--bg);color:var(--text);border:2px dashed var(--accent);border-radius:6px;padding:8px;font:inherit;resize:none"></textarea>
+      <pre class="log-list" id="diagOut" style="max-height:260px"></pre>
+    </div>
+    <footer>
+      <button class="btn" data-act="copyDiag">結果をコピー</button>
+      <button class="btn primary" data-act="closeDiag">閉じる</button>
     </footer>
   </div>
 </div>
@@ -1443,6 +1463,9 @@
     save: () => save(false),
     saveAs: () => save(true),
     saveAll,
+    pasteDiag: openPasteDiag, closeDiag: () => closeDlg('pasteDiagDlg'),
+    copyDiag: () => { const r = document.createRange(); r.selectNodeContents($('diagOut')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      toast(document.execCommand('copy') ? '診断結果をコピーしました' : '結果を選択しました。Ctrl+C でコピーしてください'); },
     snippets: () => { resetSnipForm(); renderSnips(); openDlg('snipDlg'); },
     snipSave: saveSnip, snipCancelEdit: resetSnipForm, closeSnip: () => closeDlg('snipDlg'),
     encoding: openEncDlg, applyEnc, closeEnc: () => closeDlg('encDlg'),
@@ -1549,25 +1572,87 @@
   function pasteText(text){
     insertText(text.replace(/\r\n?/g, '\n'));
   }
+  const DLP_HINT = '会社のセキュリティ機能(情報漏えい対策:DLP。例:Microsoft Purview の「ブラウザーへの貼り付け」制限)や、ブラウザの拡張機能が、このサイトへの貼り付けを止めている可能性があります。同じ内容を他のサイト(検索欄など)に貼れるか試し、貼れない場合は社内の担当部署に確認してください。「編集 → 貼り付けの診断」で詳しく調べられます。';
   function explainEmptyClipboard(types){
-    showWarn('貼り付けられる文字がクリップボードにありません' + (types && types.length ? `(中身の形式:${types.join(', ')})` : '') +
-      '。Excelでは、コピー後に Esc キーを押したりセルを編集したりすると、コピーが解除される場合があります。点線の枠が出ている状態でもう一度コピーしてから貼り付けてください。図やグラフ(画像)は貼り付けできません。');
+    showWarn('貼り付けられる文字がブラウザに届きませんでした' + (types && types.length ? `(届いた形式:${types.join(', ')})` : '(届いた形式:なし)') +
+      '。Excelでコピー後に Esc キーを押した・セルを編集した場合はコピーが解除されるので、点線の枠が出ている状態でもう一度コピーしてください。図やグラフ(画像)は貼り付けできません。それでも貼れない場合:' + DLP_HINT);
+    logError('貼り付け', '文字が届かない(形式:' + (types && types.length ? types.join(', ') : 'なし') + ')');
   }
+  // Ctrl+V を押したのに paste イベントが来ない=ブラウザや会社の設定で止められた、を検出する
+  let pasteWatch = 0;
+  function watchPaste(){
+    clearTimeout(pasteWatch);
+    pasteWatch = setTimeout(() => {
+      showWarn('貼り付け(Ctrl+V)を受け付けましたが、ブラウザから貼り付けの内容が届きませんでした。' + DLP_HINT);
+      logError('貼り付け', 'Ctrl+V 後に貼り付けイベントが届かない');
+    }, 700);
+  }
+  document.addEventListener('keydown', e => {
+    const isPasteKey = ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key || '').toLowerCase() === 'v') || (e.shiftKey && e.key === 'Insert');
+    if (!isPasteKey || document.querySelector('.overlay.show')) return;
+    const t = e.target;
+    if (t !== ed && t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return; // 検索欄などは対象外
+    if (ed && ed.readOnly) { toast('このタブはまだファイルを読み込んでいません。本文をクリックして読み込んでから貼り付けてください'); return; }
+    watchPaste();
+  }, true);
   document.addEventListener('paste', e => {
+    clearTimeout(pasteWatch); // イベントは届いた
     if (!ed || document.querySelector('.overlay.show')) return; // ダイアログの入力欄などは通常どおり
     const t = e.target;
     const isEditor = t === ed;
     const otherField = !isEditor && t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
     if (otherField) return; // 検索欄などへの貼り付けは通常どおり
+    if (ed.readOnly) return;
     const cd = e.clipboardData;
     const types = cd ? [...cd.types] : [];
     let text = cd ? cd.getData('text/plain') : '';
-    if (isEditor && text) return; // 入力欄に文字を貼る通常のケースはブラウザに任せる(元に戻すも効く)
-    e.preventDefault();
     if (!text && cd && types.includes('text/html')) text = htmlToText(cd.getData('text/html'));
+    e.preventDefault(); // ブラウザ任せにせず、届いた文字をこのアプリが確実に挿入する(元に戻すも効く)
     if (!text) { explainEmptyClipboard(types); return; }
+    const before = ed.value.length;
     pasteText(text); // 入力欄の外(ボタンなど)にカーソルがあっても、表示中のタブに貼り付ける
+    if (ed.value.length === before && text.length) { showWarn('貼り付けた文字を本文に入れられませんでした。' + DLP_HINT); logError('貼り付け', '挿入に失敗'); }
   });
+
+  /* ---- 貼り付けの診断(どの形式で何が届いたかを表示する)---- */
+  function diagLine(k, v){ return k + ':' + v; }
+  function envInfo(){
+    const ua = navigator.userAgentData ? navigator.userAgentData.brands.map(b => b.brand + ' ' + b.version).filter(x => !/Not/.test(x)).join(', ') : navigator.userAgent;
+    const standalone = matchMedia('(display-mode: standalone)').matches ? 'アプリとしてインストール' : 'ブラウザのタブ';
+    return [diagLine('ブラウザ', ua), diagLine('開き方', standalone), diagLine('サイト', location.origin), diagLine('日時', new Date().toLocaleString())];
+  }
+  let diagWatch = 0;
+  function openPasteDiag(){
+    $('diagOut').textContent = 'Excel でセルをコピーしてから、上の枠をクリックして Ctrl+V を押してください。';
+    $('diagBox').value = ''; openDlg('pasteDiagDlg'); $('diagBox').focus();
+  }
+  $('diagBox').addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && (e.key || '').toLowerCase() === 'v') {
+      clearTimeout(diagWatch);
+      diagWatch = setTimeout(() => {
+        $('diagOut').textContent = ['【結果】Ctrl+V は押されましたが、ブラウザから貼り付けの内容が届きませんでした。',
+          '→ 会社のセキュリティ機能(DLP)やブラウザの拡張機能が、このサイトへの貼り付けを止めている可能性が高いです。', '', ...envInfo()].join('\n');
+      }, 700);
+    }
+  });
+  $('diagBox').addEventListener('paste', e => {
+    clearTimeout(diagWatch); e.preventDefault();
+    const cd = e.clipboardData, lines = ['【結果】貼り付けの内容がブラウザに届きました。'];
+    if (!cd) lines.push('クリップボードの情報が取得できませんでした。');
+    else {
+      const types = [...cd.types];
+      lines.push(diagLine('届いた形式', types.length ? types.join(', ') : 'なし'));
+      for (const t of types) if (t !== 'Files') { const v = cd.getData(t); lines.push(diagLine(`  ${t} の長さ`, v.length + ' 文字')); }
+      if (cd.files && cd.files.length) lines.push(diagLine('  ファイル/画像', [...cd.files].map(f => `${f.type || '不明'} ${f.size}バイト`).join(', ')));
+      const text = cd.getData('text/plain');
+      if (text) lines.push(diagLine('文字の先頭', JSON.stringify(text.slice(0, 60))), '→ 文字は届いています。本文に貼り付けられない場合は、この結果を開発者に伝えてください。');
+      else if (types.includes('text/html')) lines.push('→ 文字形式はなく、HTML形式だけが届いています(アプリはHTMLから文字を取り出して貼り付けます)。');
+      else lines.push('→ 文字が届いていません。コピーが解除されたか、画像だけをコピーしている、または会社の設定で中身が取り除かれた可能性があります。');
+    }
+    lines.push('', ...envInfo());
+    $('diagOut').textContent = lines.join('\n');
+  });
+
   // 「編集」メニューの貼り付け(ブラウザから読み取りの許可を求められることがある)
   async function pasteFromMenu(){
     try {
@@ -1595,7 +1680,7 @@
       if ($('askDlg').classList.contains('show')) return run('askCancel');
       if ($('confirmDlg').classList.contains('show')) return run('confirmCancel');
       closeTabMenu();
-      ['gotoDlg','settingsDlg','recentDlg','encDlg','draftsDlg','snipDlg'].forEach(closeDlg);
+      ['gotoDlg','settingsDlg','recentDlg','encDlg','draftsDlg','snipDlg','pasteDiagDlg'].forEach(closeDlg);
       if ($('findbar').classList.contains('show')) actions.closeFind();
       closeMenus(); return;
     }
