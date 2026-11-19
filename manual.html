@@ -162,8 +162,8 @@
   <li><strong>Excel の表を貼り付けると</strong>「書式付きの表にしますか?」と出ます。「表にする」を押すと表に変わります。</li>
   <li><strong>書式付きでコピー</strong>:Outlook・Word・Teams などに、見出し・太字・枠線付きの表のまま貼り付けられます(文字を選んでいればその部分だけ)。</li>
   <li>「書式」「分割」表示のときに印刷すると、書式付きで印刷されます。</li>
-  <li><strong>ツールバーの表示(ピン留め)</strong>:ツールバー右端のピン(📌)が青いときは「常に表示」です。ピンを押して外すと、ツールバーが最小化されて本文が広くなります。使うときはメニューの「<strong>書式 ▾</strong>」を押すと本文の上に重ねて表示され、本文をクリックするか <kbd>Esc</kbd> で閉じます。もう一度ピンを押すか <kbd>Ctrl</kbd>+<kbd>F1</kbd> で常に表示に戻ります(「表示 → 書式ツールバーを常に表示」でも切り替えられます)。</li>
-  <li>書式ツールバーを使わないときは「表示 → 書式ツールバー」で完全に隠せます。保存するときに「Markdown(.md)」形式も選べます。</li>
+  <li><strong>ツールバーの表示/最小化</strong>:メニュー行の「<strong>書式 ▴</strong>」ボタンを押すたびに、書式ツールバーの表示と最小化が切り替わります(<kbd>Ctrl</kbd>+<kbd>F1</kbd>、「表示 → 書式ツールバー」でも同じ)。最小化すると本文が広くなり、ボタンは「書式 ▾」になります。状態は次に開いたときも保たれます。</li>
+  <li>保存するときに「Markdown(.md)」形式も選べます。</li>
 </ul>
 
 <h3 id="view">3-5. 表示・印刷</h3>
@@ -230,7 +230,7 @@
   <tr><td><kbd>Ctrl</kbd>+<kbd>X</kbd> / <kbd>C</kbd> / <kbd>V</kbd></td><td>切り取り / コピー / 貼り付け</td><td><kbd>Alt</kbd>+<kbd>W</kbd></td><td>タブを閉じる</td></tr>
   <tr><td><kbd>Alt</kbd>+<kbd>1</kbd>~<kbd>8</kbd></td><td>左から○番目のタブへ</td><td><kbd>Alt</kbd>+<kbd>9</kbd></td><td>いちばん右のタブへ</td></tr>
   <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>S</kbd></td><td>すべて保存</td><td><kbd>Alt</kbd>+<kbd>T</kbd></td><td>定型文</td></tr>
-  <tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd> / <kbd>I</kbd> / <kbd>K</kbd></td><td>太字 / 斜体 / リンク</td><td><kbd>Ctrl</kbd>+<kbd>F1</kbd></td><td>書式ツールバーの常に表示/最小化</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd> / <kbd>I</kbd> / <kbd>K</kbd></td><td>太字 / 斜体 / リンク</td><td><kbd>Ctrl</kbd>+<kbd>F1</kbd></td><td>書式ツールバーの表示/最小化</td></tr>
 </table>
 <div class="note">新しいタブは <kbd>Ctrl</kbd>+<kbd>N</kbd> ではなく <kbd>Alt</kbd>+<kbd>N</kbd>、タブを閉じるのは <kbd>Ctrl</kbd>+<kbd>W</kbd> ではなく <kbd>Alt</kbd>+<kbd>W</kbd> です。<kbd>Ctrl</kbd>+<kbd>N</kbd> / <kbd>W</kbd> / <kbd>Tab</kbd> はブラウザ自身の操作(新しいウィンドウ・ブラウザのタブを閉じる・ブラウザのタブ切り替え)に使われていて、アプリ側では受け取れないためです。<kbd>Ctrl</kbd>+<kbd>W</kbd> を押すとアプリの画面ごと閉じようとします(未保存があれば確認が出ます)。</div>
 
@@ -285,6 +285,7 @@
 <h2 id="history">11. 更新履歴</h2>
 <table>
   <tr><th>バージョン</th><th>日付</th><th>内容</th></tr>
+  <tr><td>検討中(ver未確定)</td><td>2026-11-19</td><td>書式ツールバーの表示/最小化を、メニュー行の「書式」ボタン1つ(または Ctrl+F1)で切り替える方式に変更(ピン留めと一時表示は廃止)。</td></tr>
   <tr><td>検討中(ver未確定)</td><td>2026-11-19</td><td>書式ツールバーのピン留め(常に表示/ピンを外して最小化、Ctrl+F1)を追加。書いているうちに画面がずれて上部のタブ・メニュー・ツールバーが隠れないよう対策(画面キーボード対応を含む)。</td></tr>
   <tr><td>検討中(ver未確定)</td><td>2026-11-19</td><td>アプリ名を「下書きメモ帳」から「M’s Jotter」に変更。</td></tr>
   <tr><td>検討中(ver未確定)</td><td>2026-11-19</td><td>書式ツールバー(見出し・リスト・太字・斜体・取り消し線・リンク・表・書式クリア)、表示の切り替え(編集/分割/書式)、書式付きでコピー、Excelの表を表にする機能、フォント(文字種)の選択を追加。既定のフォントを日本語フォント優先に変更(①などの記号が小さく表示される問題への対策)。</td></tr>
