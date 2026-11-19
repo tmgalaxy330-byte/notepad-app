@@ -78,7 +78,7 @@
 <li>ファイルへの直接保存(File System Access API)はChromium系(Edge / Chrome、Chrome Android 132以降)のみ。非対応・会社ポリシーで禁止(DefaultFileSystemWriteGuardSetting 等)の場合はダウンロード保存に自動で切り替える。</li>
 <li>Service Worker は https または localhost でのみ動作する。file:// で開いた場合はオフライン機能なし。</li>
 <li>Chrome は <kbd>Ctrl</kbd>+<kbd>N</kbd>/<kbd>T</kbd>/<kbd>W</kbd> をページに渡さないため、新しいタブは <kbd>Alt</kbd>+<kbd>N</kbd>、タブを閉じるは <kbd>Alt</kbd>+<kbd>W</kbd>、タブ切り替えは <kbd>Alt</kbd>+<kbd>1</kbd>~<kbd>9</kbd> とする(<kbd>Ctrl</kbd>+<kbd>Tab</kbd> もブラウザが使うため使わない)。</li>
-<li>保存時の文字コードは UTF-8(BOMなし)固定。TextEncoder が UTF-8 のみ対応のため。読込は UTF-8 / UTF-8(BOM) / UTF-16 LE・BE(BOM付き) / Shift_JIS(UTF-8として不正な場合)。</li>
+<li>文字コード:読込は UTF-8 / UTF-8(BOM) / UTF-16 LE・BE(BOM付き) / Shift_JIS(UTF-8として不正な場合)。保存は文書ごとの文字コード(開いたファイルは元の文字コード、新規は設定値)。TextEncoder は UTF-8 のみ対応のため、UTF-16 は自前で変換し、Shift_JIS は TextDecoder('shift_jis')で全2バイト符号を読み込んで逆引き表を作る(初回のみ、約10ms)。</li>
 <li>会社ポリシー ClearBrowsingDataOnExit 有効時は、閉じると一時保存・キャッシュが消える。検知は不可能なため、初回起動と同じ扱いで注意を表示する。</li>
 </ul>
 
@@ -98,7 +98,8 @@
 <ol>
 <li>空のタブ(文書)を1つ作り、設定(localStorage)を読み込んでテーマ等を反映</li>
 <li>未確認のエラーログがあれば赤バナーで通知</li>
-<li>一時保存(IndexedDB)から復元候補を探し、あれば青バナーで案内。なく、かつ訪問記録もなければ「初回またはデータ消去の可能性」を黄バナーで表示</li>
+<li>前回のタブを再開(下記「タブ構成の記録と再開」)</li>
+<li>残った一時保存(IndexedDB)から復元候補を探し、あれば青バナーで案内。なく、かつ訪問記録もなければ「初回またはデータ消去の可能性」を黄バナーで表示</li>
 <li>Service Worker を登録、persist() を要求</li>
 </ol>
 <h3>タブ(文書)</h3>
@@ -116,10 +117,25 @@
 <tr><td>fileName / handle</td><td>開いているファイル名と、ファイル参照(FileSystemFileHandle。ダウンロード方式では null)</td></tr>
 <tr><td>lastModified</td><td>開いた/保存した時点のファイル更新時刻(競合検知に使用)</td></tr>
 <tr><td>dirty</td><td>未保存の変更があるか</td></tr>
-<tr><td>eol / enc</td><td>改行コード(CRLF/LF)、読み込んだ文字コード</td></tr>
+<tr><td>eol / enc</td><td>改行コード(CRLF/LF)、文字コード(読み込んだ文字コード=保存する文字コード。ステータスバーから変更可)</td></tr>
+<tr><td>lazy</td><td>前回のタブを再開したが、まだファイルを読み込んでいない(読み取り専用。保存不可)</td></tr>
 <tr><td>changed / draftSaved</td><td>前回の一時保存以降に変更があるか、一時保存が存在するか(変更のない文書は書き直さない)</td></tr>
 </table>
-<p>画面全体の状態(state)は zoom(倍率)、pending(保存確認後に続ける処理)、updating(更新中)のみ。</p>
+<p>画面全体の状態(state)は zoom(倍率)、updating(更新中)のみ。</p>
+<h3>保存確認・まとめて操作</h3>
+<ul>
+<li>保存確認は askSaveChanges(d) が 'save' / 'discard' / 'cancel' を返す Promise。対象の文書は引数で固定する。</li>
+<li>closeMany(list):順に closeDoc し、キャンセルされたらそこで止める(他を閉じる・右側を閉じる・変更のないタブを閉じる)。</li>
+<li>saveAll:未保存の文書を順に保存。保存先の選択がキャンセルされたらそこで止める。</li>
+<li>タブの右クリックメニュー(#tabMenu)、ドラッグでの並べ替え(docs 配列とタブ要素の両方を移動)。</li>
+</ul>
+<h3>タブ構成の記録と再開</h3>
+<ul>
+<li>drafts ストアに <code>session:tabId</code> のキーで {t, active, docs:[{id, name, handle, eol, enc, lastModified}]} を記録(DB の版上げを避けるため同じストアを使い、書きかけの一覧からは除外)。タブの作成・切り替え・閉じる・開く・保存・並べ替え時(300ms 後)と、画面が隠れたとき・閉じるときに書き込む。</li>
+<li>起動時:自分の tabId の記録があれば(再読み込み)それを、なければ他に開いているウィンドウがない場合に限り、生存していない最新の記録を戻す。2つ目以降のウィンドウは白紙で始める。使った記録は先に削除し、他の古い記録も削除する。</li>
+<li>書きかけ(tabId:文書ID)がある文書はその内容で未保存として戻し、ファイル参照も保つ。書きかけがなくファイル参照がある文書は lazy で戻し、queryPermission が granted なら表示時に、そうでなければ本文のクリック/キー入力時に requestPermission して読み込む。白紙の文書は戻さない。</li>
+<li>設定「前回のタブを再開する」がオフなら記録を削除し、再開しない。</li>
+</ul>
 <h3>貼り付け</h3>
 <ul>
 <li>document の paste で処理する。入力欄で text/plain がある通常の貼り付けはブラウザに任せる(元に戻すが効く)。</li>
@@ -128,25 +144,28 @@
 <li>文字が何もなければ、クリップボードの形式名と考えられる原因を黄バナーで表示する。</li>
 <li>ボタン操作の後は入力欄にフォーカスを戻す(ダイアログ表示中・検索欄などの入力中を除く)。</li>
 <li>「編集 → 貼り付け」は navigator.clipboard.readText を使う。許可されない環境では Ctrl+V を案内する。</li>
-<li>ダイアログ(.overlay)表示中は、Esc 以外のショートカットとファイルのドロップを受け付けない。保存確認は対象の文書(pendingDoc)を記録し、表示中のタブではなくその文書に対して保存/破棄する。</li>
+<li>ダイアログ(.overlay)表示中は、Esc 以外のショートカットとファイルのドロップを受け付けない。保存確認は対象の文書を引数で固定し、表示中のタブではなくその文書に対して保存/破棄する。</li>
 </ul>
 
 <h2 id="storage">6. データ保存設計</h2>
 <table>
 <tr><th>保存先</th><th>キー</th><th>内容</th></tr>
-<tr><td>localStorage</td><td>np.settings</td><td>設定(テーマ、折り返し、文字サイズ、自動保存、改行コード、ステータスバー)</td></tr>
+<tr><td>localStorage</td><td>np.settings</td><td>設定(テーマ、折り返し、文字サイズ、自動保存、改行コード、文字コード、ステータスバー、行番号、前回のタブを再開)</td></tr>
+<tr><td>localStorage</td><td>np.snippets</td><td>定型文 [{name, text}]。本文の {日付} {時刻} は挿入時に置換</td></tr>
 <tr><td>localStorage</td><td>np.errorlog / np.lastSeenLog</td><td>エラーログ(最大50件)と、通知済みの最終時刻</td></tr>
 <tr><td>localStorage</td><td>np.alive.&lt;tabId&gt;</td><td>タブの生存記録(4秒ごと更新、pagehideで削除、3分で失効、1日で掃除)</td></tr>
 <tr><td>localStorage</td><td>np.visited</td><td>訪問済みの印</td></tr>
 <tr><td>sessionStorage</td><td>np.tabId</td><td>タブ識別子(再読み込みでは維持。タブ複製時は新規発行)</td></tr>
-<tr><td>IndexedDB notepad-db / drafts</td><td>tabId:文書ID</td><td>一時保存 {text, name, eol, t}。文書(アプリ内タブ)ごとに1件。入力停止1.5秒後、画面が隠れたとき、閉じるときに書き込み。保存・タブを閉じる・破棄で削除。旧形式のキー(tabId のみ)も復元対象として扱う</td></tr>
+<tr><td>IndexedDB notepad-db / drafts</td><td>tabId:文書ID</td><td>一時保存 {text, name, eol, enc, t}。文書(アプリ内タブ)ごとに1件。入力停止1.5秒後、画面が隠れたとき、閉じるときに書き込み。保存・タブを閉じる・破棄で削除。旧形式のキー(tabId のみ)も復元対象として扱う</td></tr>
 <tr><td>IndexedDB notepad-db / recent</td><td>時刻+乱数</td><td>最近使ったファイル {handle, name, t}。最大10件、同じファイルは isSameEntry で重複排除</td></tr>
 </table>
-<p>復元候補:今開いている文書の分は除く。自ブラウザタブの分は起動時(再読み込み)の案内が終わるまで、他ブラウザタブの分は生存記録が失効しているもののみ。新しい順に1件ずつ案内し、2件以上なら「すべて復元」も表示する。復元は新しいタブ(白紙のタブがあれば再利用)に行い、新しいキーで一時保存を書いてから元のキーを削除する。IndexedDB が使えない場合はメモリに退避し、警告を表示する。</p>
+<p>復元候補:今開いている文書の分は除く。自ブラウザタブの分は起動時(再読み込み)の案内が終わるまで、他ブラウザタブの分は生存記録が失効しているもののみ。新しい順に1件ずつ案内し、2件以上なら「すべて復元」も表示する。復元は新しいタブ(白紙のタブがあれば再利用)に行い、新しいキーで一時保存を書いてから元のキーを削除する。IndexedDB が使えない場合はメモリに退避し、警告を表示する。「書きかけ一覧」ダイアログでは同じ候補を一覧し、個別の復元・削除とすべて復元ができる。</p>
 
 <h2 id="fileio">7. ファイル入出力</h2>
 <ul>
 <li>開く:先頭8KBに NUL(0x00)を含むファイル(BOM付きUTF-16を除く)はテキストではないとして開かず、理由を表示する。showOpenFilePicker → 不可なら input[type=file]。ドラッグ&ドロップは getAsFileSystemHandle が使えればファイル参照ごと取得する。</li>
+<li>保存の前に文字コードへ変換する(encodeText)。表せない文字があれば一覧を示し、「?」に置き換えて保存するか確認する。未読み込み(lazy)の文書は保存しない。</li>
+<li>大きなファイル:5MB を超える場合は開く前に確認する。</li>
 <li>保存:ファイル参照があれば createWritable で上書き。なければ showSaveFilePicker(初期名はファイル名、無題なら1行目)。SecurityError / NotAllowedError のときはダウンロード保存に切り替えて警告する。</li>
 <li>改行:内部は LF。保存時に eol が CRLF なら変換する。</li>
 <li>印刷:beforeprint で本文を印刷専用領域に複製し、印刷用CSSで本文のみ出力する。</li>
@@ -171,13 +190,16 @@
 <li>構成:タブ列(アイコン・タブ・「+」)/メニュー(ファイル・編集・表示)/通知バナー(更新・エラー・復元・注意)/検索バー/本文/ステータスバー</li>
 <li>アプリ内タブの見出し:「● 」(未保存時)+ ファイル名。無題は「無題: 1行目の冒頭20文字…」。✕で閉じる。多いときは横スクロール。画面幅600px以下では幅を狭くする。</li>
 <li>ブラウザのタブ見出し:表示中の文書の見出し+「(他 n タブ・未保存 m)」</li>
-<li>編集メニュー:元に戻す・やり直し/切り取り・コピー・貼り付け/検索・置換・行へ移動/すべて選択・日付と時刻</li>
-<li>ステータスバー:行・列、文字数(改行を除く、サロゲートペアは1文字)、保存状態、倍率、改行コード、文字コード。画面幅600px以下では後半3項目を隠す。</li>
+<li>ファイルメニュー:新しいタブ/開く/最近使ったファイル/書きかけ一覧/上書き保存・名前を付けて保存・すべて保存/文字コードを変更/印刷/タブを閉じる</li>
+<li>編集メニュー:元に戻す・やり直し/切り取り・コピー・貼り付け/検索・置換・行へ移動/すべて選択・日付と時刻・定型文</li>
+<li>表示メニュー:拡大・縮小/右端で折り返す/行番号/ステータスバー。行番号は見えている範囲だけ描画し、表示中は折り返しをオフにする(折り返すと行の高さが変わり、番号がずれるため)。</li>
+<li>検索バー:大文字と小文字を区別/正規表現(gmu フラグ。長さ0の一致は検索では飛ばし、置換では対象にする。置換文字列の $1 $& $&lt;名前&gt; $$ を展開)</li>
+<li>ステータスバー:行・列、文字数(改行を除く、サロゲートペアは1文字。選択中は「選択 n / 全体 文字」)、保存状態、倍率、改行コード、文字コード。画面幅600px以下では後半3項目を隠す。</li>
 <li>テーマ:ライト/ダーク/システム。Windows 11メモ帳に近い配色。</li>
 </ul>
 
 <h2 id="keys">11. ショートカット</h2>
-<p>取扱説明書6章と同じ。新しいタブ <kbd>Alt</kbd>+<kbd>N</kbd>、タブを閉じる <kbd>Alt</kbd>+<kbd>W</kbd>、タブ切り替え <kbd>Alt</kbd>+<kbd>1</kbd>~<kbd>9</kbd>、開く <kbd>Ctrl</kbd>+<kbd>O</kbd>、最近 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>、保存 <kbd>Ctrl</kbd>+<kbd>S</kbd>、名前を付けて <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>、印刷 <kbd>Ctrl</kbd>+<kbd>P</kbd>、検索 <kbd>Ctrl</kbd>+<kbd>F</kbd>/<kbd>F3</kbd>、置換 <kbd>Ctrl</kbd>+<kbd>H</kbd>、行移動 <kbd>Ctrl</kbd>+<kbd>G</kbd>、日時 <kbd>F5</kbd>、ズーム <kbd>Ctrl</kbd>+<kbd>+</kbd>/<kbd>-</kbd>/<kbd>0</kbd>。</p>
+<p>取扱説明書6章と同じ。すべて保存 <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>S</kbd>、定型文 <kbd>Alt</kbd>+<kbd>T</kbd>、新しいタブ <kbd>Alt</kbd>+<kbd>N</kbd>、タブを閉じる <kbd>Alt</kbd>+<kbd>W</kbd>、タブ切り替え <kbd>Alt</kbd>+<kbd>1</kbd>~<kbd>9</kbd>、開く <kbd>Ctrl</kbd>+<kbd>O</kbd>、最近 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>、保存 <kbd>Ctrl</kbd>+<kbd>S</kbd>、名前を付けて <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>、印刷 <kbd>Ctrl</kbd>+<kbd>P</kbd>、検索 <kbd>Ctrl</kbd>+<kbd>F</kbd>/<kbd>F3</kbd>、置換 <kbd>Ctrl</kbd>+<kbd>H</kbd>、行移動 <kbd>Ctrl</kbd>+<kbd>G</kbd>、日時 <kbd>F5</kbd>、ズーム <kbd>Ctrl</kbd>+<kbd>+</kbd>/<kbd>-</kbd>/<kbd>0</kbd>。</p>
 
 <h2 id="error">12. エラー処理・ログ</h2>
 <ul>
@@ -201,6 +223,9 @@
 <li>再読み込み後、複数タブの書きかけを「すべて復元」で戻せる(一時保存が重複しない)</li>
 <li>保存確認の表示中にショートカット・ドロップをしても、対象外のタブの内容や未保存状態が変わらない</li>
 <li>Excel・Word などのファイルを開こうとすると、開かずに理由が表示される</li>
+<li>再読み込み・閉じて開き直したとき、前回のタブ(順番・表示中タブ・保存済みファイル)が戻る。2つ目のウィンドウは白紙。未許可のファイルはクリックで読み込み、読み込み前は保存できない</li>
+<li>Shift_JIS のファイルは Shift_JIS のまま保存される。Shift_JIS の全2バイト文字が往復変換で一致する。表せない文字は保存前に確認が出る</li>
+<li>すべて保存、タブの右クリックメニュー、ドラッグでの並べ替え、選択文字数、5MB 超の確認、行番号(本文の行と位置が一致)、正規表現の検索・置換、定型文の追加・挿入・元に戻す、が動作する</li>
 <li>ボタンやメニューを押した直後でも Ctrl+V で本文に貼り付けられる。Excelの表はタブ区切りで貼り付く。文字のないクリップボードでは理由が表示される</li>
 <li>同じファイルを2タブで開くと双方に警告が出る/外部で変更されたファイルの上書き前に確認が出る</li>
 <li>最近使ったファイルから開ける(最大10件、重複なし)</li>
@@ -213,6 +238,7 @@
 <h2 id="history">15. 更新履歴</h2>
 <table>
 <tr><th>バージョン</th><th>日付</th><th>内容</th></tr>
+<tr><td>検討中(ver未確定)</td><td>2026-11-19</td><td>機能追加:前回のタブを再開(タブ構成の記録・未許可ファイルの後読み)、選択文字数、すべて保存、文字コード指定の保存(Shift_JIS/UTF-16/BOM)、書きかけ一覧、タブの右クリックメニュー・並べ替え、5MB 超の確認、行番号、正規表現、定型文。保存確認を Promise 化。</td></tr>
 <tr><td>検討中(ver未確定)</td><td>2026-11-19</td><td>アプリ内タブ機能(複数文書の同時編集、文書ごとの一時保存・すべて復元、同じファイルは既存タブへ切り替え)。貼り付けの改善(フォーカス外の Ctrl+V を本文へ、HTMLのみの表の文字化、失敗理由の表示、操作後のフォーカス戻し)。編集メニューに切り取り・コピー・貼り付け。不具合修正:保存確認の表示中にショートカットでタブを切り替えると別文書の未保存状態が消える/バイナリファイルの読み込み/一時保存の書き込み中に閉じたタブの一時保存が残る/プリキャッシュがHTTPキャッシュの古い内容を取り込む。</td></tr>
 <tr><td>検討中(ver未確定)</td><td>2026-11-18</td><td>初版の試作。HTML試作の不具合修正(タブ別一時保存、Alt+N、UTF-16、容量超過警告、性能)、提案6件(IndexedDB一時保存、persist、最近使ったファイル、競合警告、更新通知、D&D・印刷)を実装。</td></tr>
 </table>

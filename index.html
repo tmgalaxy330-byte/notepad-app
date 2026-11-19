@@ -42,6 +42,16 @@
   .tab .x:hover{background:var(--border);color:var(--text)}
   .tab-add{background:none;border:none;border-radius:6px;padding:4px 10px;margin-bottom:2px;cursor:pointer;font-size:16px;flex:none}
   .tab-add:hover{background:var(--hover)}
+  .tab.dragging{opacity:.4}
+  .tab.drop-before{box-shadow:3px 0 0 var(--accent) inset}
+  .tab.drop-after{box-shadow:-3px 0 0 var(--accent) inset}
+  /* タブの右クリックメニュー */
+  .ctxmenu{display:none;position:fixed;min-width:220px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);padding:4px;z-index:90}
+  .ctxmenu.show{display:block}
+  .ctxmenu button{display:flex;justify-content:space-between;width:100%;background:none;border:none;padding:7px 10px;border-radius:5px;cursor:pointer;text-align:left}
+  .ctxmenu button:hover{background:var(--hover)}
+  .ctxmenu button:disabled{color:var(--sub);cursor:default;background:none}
+  .ctxmenu hr{border:none;border-top:1px solid var(--border);margin:4px 0}
 
   .menubar{display:flex;align-items:center;gap:2px;padding:0 6px;background:var(--bg);position:relative;flex-wrap:wrap}
   .menu{position:relative}
@@ -81,12 +91,18 @@
   .editor-wrap{flex:1;display:flex;background:var(--surface);margin:0 8px;border:1px solid var(--border);border-radius:8px 8px 0 0;overflow:hidden;min-height:0;position:relative}
   .editor-wrap textarea{flex:1;border:none;outline:none;resize:none;background:transparent;color:var(--text);padding:12px 16px;font-family:var(--editor-font);font-size:16px;line-height:1.6;tab-size:4}
   .editor-wrap textarea.nowrap{white-space:pre;overflow-x:auto}
+  .gutter{display:none;flex:none;position:relative;overflow:hidden;border-right:1px solid var(--border);color:var(--sub);font-family:var(--editor-font);line-height:1.6;user-select:none;background:var(--bg)}
+  .gutter.show{display:block}
+  .gutter-inner{position:absolute;right:8px;top:0;white-space:pre;text-align:right}
+  .gutter-inner b{color:var(--text);font-weight:600}
   .dropzone{display:none;position:absolute;inset:8px;border:3px dashed var(--accent);border-radius:8px;background:color-mix(in srgb,var(--surface) 85%,transparent);align-items:center;justify-content:center;font-size:18px;color:var(--accent);pointer-events:none}
   .dropzone.show{display:flex}
 
   .statusbar{display:flex;font-size:12px;color:var(--sub);background:var(--surface);margin:0 8px 8px;border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px}
   .statusbar span{padding:5px 14px;border-right:1px solid var(--border);white-space:nowrap}
   .statusbar span:last-child{border-right:none}
+  .statusbar .clickable{cursor:pointer}
+  .statusbar .clickable:hover{background:var(--hover)}
   .statusbar .grow{flex:1;border-right:1px solid var(--border);overflow:hidden;text-overflow:ellipsis}
 
   .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:100;align-items:center;justify-content:center;padding:16px}
@@ -154,9 +170,12 @@
       <button data-act="new">新しいタブ<span class="kbd">Alt+N</span></button>
       <button data-act="open">開く…<span class="kbd">Ctrl+O</span></button>
       <button data-act="recent" id="mRecent">最近使ったファイル…<span class="kbd">Ctrl+Shift+O</span></button>
+      <button data-act="drafts">書きかけ一覧…</button>
       <hr>
       <button data-act="save">上書き保存<span class="kbd">Ctrl+S</span></button>
       <button data-act="saveAs">名前を付けて保存…<span class="kbd">Ctrl+Shift+S</span></button>
+      <button data-act="saveAll">すべて保存<span class="kbd">Ctrl+Alt+S</span></button>
+      <button data-act="encoding">文字コードを変更…</button>
       <hr>
       <button data-act="print">印刷…<span class="kbd">Ctrl+P</span></button>
       <hr>
@@ -179,6 +198,7 @@
       <hr>
       <button data-act="selectAll">すべて選択<span class="kbd">Ctrl+A</span></button>
       <button data-act="timestamp">日付と時刻を挿入<span class="kbd">F5</span></button>
+      <button data-act="snippets">定型文…<span class="kbd">Alt+T</span></button>
     </div>
   </div>
   <div class="menu">
@@ -189,6 +209,7 @@
       <button data-act="zoomReset">既定のズームに戻す<span class="kbd">Ctrl+0</span></button>
       <hr>
       <button data-act="toggleWrap" class="check" id="mWrap">右端で折り返す</button>
+      <button data-act="toggleLineNo" class="check" id="mLineNo">行番号</button>
       <button data-act="toggleStatus" class="check on" id="mStatus">ステータスバー</button>
     </div>
   </div>
@@ -199,7 +220,7 @@
 
 <div class="banner ok" id="updateBanner"><span class="msg">新しいバージョンがあります。更新すると書きかけの内容は自動で引き継がれます。</span><button data-act="applyUpdate">今すぐ更新</button><button data-act="dismissUpdate">あとで</button></div>
 <div class="banner err" id="errBanner"><span class="msg" id="errBannerMsg"></span><button data-act="showLog">ログを見る</button><button data-act="dismissErr">閉じる</button></div>
-<div class="banner info" id="restoreBanner"><span class="msg" id="restoreMsg"></span><button data-act="restore">復元する</button><button data-act="restoreAll" id="restoreAllBtn">すべて復元</button><button data-act="discardDraft">破棄</button></div>
+<div class="banner info" id="restoreBanner"><span class="msg" id="restoreMsg"></span><button data-act="restore">復元する</button><button data-act="restoreAll" id="restoreAllBtn">すべて復元</button><button data-act="drafts">一覧を見る</button><button data-act="discardDraft">破棄</button></div>
 <div class="banner warn" id="warnBanner"><span class="msg" id="warnMsg"></span><button data-act="dismissWarn">閉じる</button></div>
 
 <div class="findbar" id="findbar">
@@ -207,6 +228,7 @@
   <button data-act="findPrev" title="前を検索 (Shift+F3)">↑</button>
   <button data-act="findNext" title="次を検索 (F3)">↓</button>
   <label><input type="checkbox" id="matchCase">大文字と小文字を区別</label>
+  <label title="例:^\d+ で行頭の数字、\s+$ で行末の空白。置換では $1 などが使えます"><input type="checkbox" id="useRegex">正規表現</label>
   <span class="find-status" id="findStatus"></span>
   <div class="replace-row">
     <input type="text" id="replaceInput" placeholder="置換後の文字列" aria-label="置換">
@@ -219,6 +241,7 @@
 </div>
 
 <div class="editor-wrap" id="editorWrap">
+  <div class="gutter" id="gutter" aria-hidden="true"><div class="gutter-inner" id="gutterInner"></div></div>
   <div class="dropzone" id="dropzone">ここにファイルをドロップして開く</div>
 </div>
 
@@ -228,7 +251,7 @@
   <span class="grow" id="stSave">未保存</span>
   <span class="opt" id="stZoom">100%</span>
   <span class="opt" id="stEol">Windows (CRLF)</span>
-  <span class="opt" id="stEnc">UTF-8</span>
+  <span class="opt clickable" id="stEnc" title="クリックで保存する文字コードを変更">UTF-8</span>
 </footer>
 
 <!-- 行へ移動 -->
@@ -256,11 +279,23 @@
   </div>
 </div>
 
+<!-- 文字コードの変更 -->
+<div class="overlay" id="encDlg">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="encTitle" style="width:min(440px,100%)">
+    <header id="encTitle">保存する文字コード</header>
+    <div class="body">
+      <p class="desc" style="margin-top:0">このタブを保存するときの文字コードを選びます。社内システムや古いソフトに読み込ませる場合は「Shift_JIS」を選んでください。</p>
+      <select id="encSelect" style="background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:4px 8px;font:inherit"><option value="UTF-8">UTF-8</option><option value="UTF-8 (BOM)">UTF-8 (BOM付き)</option><option value="Shift_JIS">Shift_JIS(ANSI)</option><option value="UTF-16 LE">UTF-16 LE</option><option value="UTF-16 BE">UTF-16 BE</option></select>
+    </div>
+    <footer><button class="btn" data-act="closeEnc">キャンセル</button><button class="btn primary" data-act="applyEnc">変更</button></footer>
+  </div>
+</div>
+
 <!-- 汎用の確認(上書き確認など) -->
 <div class="overlay" id="askDlg">
   <div class="dialog" role="dialog" aria-modal="true" style="width:min(460px,100%)">
     <header id="askTitle">確認</header>
-    <div class="body"><p id="askMsg"></p></div>
+    <div class="body"><p id="askMsg" style="white-space:pre-wrap"></p></div>
     <footer>
       <button class="btn primary" data-act="askOk" id="askOkBtn">OK</button>
       <button class="btn" data-act="askCancel">キャンセル</button>
@@ -279,6 +314,42 @@
     <footer>
       <button class="btn danger" data-act="clearRecent">一覧を消去</button>
       <button class="btn primary" data-act="closeRecent">閉じる</button>
+    </footer>
+  </div>
+</div>
+
+<!-- 定型文 -->
+<div class="overlay" id="snipDlg">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="snipTitle">
+    <header id="snipTitle">定型文</header>
+    <div class="body">
+      <p class="desc" style="margin-top:0">選ぶとカーソルの位置に挿入します。本文に <code>{日付}</code> <code>{時刻}</code> と書くと、挿入したときの日付・時刻に置き換わります。</p>
+      <ul class="recent-list" id="snipList"></ul>
+      <p class="desc" id="snipEmpty" style="display:none">登録された定型文はありません。下の欄から追加してください。</p>
+      <div class="section-title" id="snipFormTitle">新しい定型文を追加</div>
+      <input type="text" id="snipName" placeholder="名前(例:あいさつ)" maxlength="40" style="width:100%;margin-top:6px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px 8px;font:inherit">
+      <textarea id="snipText" rows="4" placeholder="本文" style="width:100%;margin-top:6px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px 8px;font-family:var(--editor-font);resize:vertical"></textarea>
+    </div>
+    <footer>
+      <button class="btn" data-act="snipCancelEdit" id="snipCancelBtn" style="display:none">編集をやめる</button>
+      <button class="btn" data-act="snipSave" id="snipSaveBtn">追加</button>
+      <button class="btn primary" data-act="closeSnip">閉じる</button>
+    </footer>
+  </div>
+</div>
+
+<!-- 書きかけ一覧 -->
+<div class="overlay" id="draftsDlg">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="draftsTitle">
+    <header id="draftsTitle">書きかけ一覧</header>
+    <div class="body">
+      <p class="desc" style="margin-top:0">閉じたタブやブラウザに一時保存されている書きかけです。選ぶとタブで復元します(今開いているタブの分は表示しません)。</p>
+      <ul class="recent-list" id="draftList"></ul>
+      <p class="desc" id="draftEmpty" style="display:none">復元できる書きかけはありません。</p>
+    </div>
+    <footer>
+      <button class="btn" data-act="restoreAll" id="draftAllBtn">すべて復元</button>
+      <button class="btn primary" data-act="closeDrafts">閉じる</button>
     </footer>
   </div>
 </div>
@@ -305,8 +376,16 @@
         <label class="switch"><input type="checkbox" id="setAutosave" checked><span></span></label>
       </div>
       <div class="setting-row">
+        <div><div>前回のタブを再開する</div><div class="desc">閉じたときに開いていたタブ(保存済みのファイルを含む)を、次に開いたときに元に戻す</div></div>
+        <label class="switch"><input type="checkbox" id="setRestoreTabs" checked><span></span></label>
+      </div>
+      <div class="setting-row">
         <div><div>保存時の改行コード</div><div class="desc">新規ファイルの改行形式</div></div>
         <select id="setEol"><option value="CRLF">Windows (CRLF)</option><option value="LF">Unix (LF)</option></select>
+      </div>
+      <div class="setting-row">
+        <div><div>保存時の文字コード</div><div class="desc">新規ファイルの文字コード(開いたファイルは元の文字コードのまま保存)</div></div>
+        <select id="setEnc"><option value="UTF-8">UTF-8</option><option value="UTF-8 (BOM)">UTF-8 (BOM付き)</option><option value="Shift_JIS">Shift_JIS(ANSI)</option><option value="UTF-16 LE">UTF-16 LE</option><option value="UTF-16 BE">UTF-16 BE</option></select>
       </div>
 
       <div class="section-title">この環境の状態</div>
@@ -327,6 +406,17 @@
 </div>
 
 <input type="file" id="fileInput" accept=".txt,.md,.log,.csv,text/plain" hidden>
+<div class="ctxmenu" id="tabMenu" role="menu">
+  <button data-ctx="save">保存</button>
+  <button data-ctx="saveAs">名前を付けて保存…</button>
+  <hr>
+  <button data-ctx="close">閉じる</button>
+  <button data-ctx="closeOthers">他のタブを閉じる</button>
+  <button data-ctx="closeRight">右側のタブを閉じる</button>
+  <button data-ctx="closeSaved">変更のないタブを閉じる</button>
+  <hr>
+  <button data-ctx="saveAll">すべて保存<span class="kbd" style="color:var(--sub);font-size:12px;margin-left:16px">Ctrl+Alt+S</span></button>
+</div>
 <div class="toast" id="toast"></div>
 <div id="printArea"></div>
 
@@ -415,8 +505,8 @@
   heartbeat(); setInterval(heartbeat, 4000);
 
   /* ================= 状態・設定 ================= */
-  const state = { zoom:100, pending:null, pendingDoc:null, updating:false };
-  const defaults = { theme:'light', wrap:true, font:16, autosave:true, eol:'CRLF', status:true };
+  const state = { zoom:100, updating:false };
+  const defaults = { theme:'light', wrap:true, font:16, autosave:true, eol:'CRLF', enc:'UTF-8', status:true, restoreTabs:true, lineNo:false };
   let settings = Object.assign({}, defaults);
   try { Object.assign(settings, JSON.parse(store.get(K.settings) || '{}')); } catch(e){}
   const saveSettings = () => store.set(K.settings, JSON.stringify(settings));
@@ -457,12 +547,35 @@
       else if (c >= 0xD800 && c <= 0xDBFF) pairs++;
     }
     $('stPos').textContent = `行 ${line}、列 ${pos - lastNl}`;
-    $('stCount').textContent = `${(v.length - nls - pairs).toLocaleString()} 文字`;
+    const total = (v.length - nls - pairs).toLocaleString();
+    const a = ed.selectionStart, b = ed.selectionEnd;
+    if (b > a) { // 選択中の文字数(改行を除く・絵文字などは1文字)
+      const sel = v.slice(a, b);
+      const n = [...sel].length - (sel.match(/\n/g) || []).length;
+      $('stCount').textContent = `選択 ${n.toLocaleString()} / ${total} 文字`;
+    } else $('stCount').textContent = `${total} 文字`;
     $('stZoom').textContent = state.zoom + '%';
     $('stEol').textContent = D.eol === 'CRLF' ? 'Windows (CRLF)' : 'Unix (LF)';
     $('stEnc').textContent = D.enc;
+    renderGutter(nls + 1, line);
     $('stSave').textContent = D.dirty ? '未保存の変更あり'
       : (D.savedAt ? `保存済み ${fmtDate(D.savedAt)}` : (D.fileName ? '変更なし' : '未保存'));
+  }
+  // 行番号:見えている範囲だけ描く(大きなファイルでも軽い)
+  let gutterTotal = 1, gutterCur = 1;
+  function renderGutter(total, cur){
+    if (total) { gutterTotal = total; gutterCur = cur; }
+    if (!settings.lineNo || !ed) return;
+    const cs = getComputedStyle(ed), lh = parseFloat(cs.lineHeight) || 24, pt = parseFloat(cs.paddingTop) || 0;
+    const g = $('gutter'), inner = $('gutterInner');
+    const first = Math.max(0, Math.floor((ed.scrollTop - pt) / lh));
+    const last = Math.min(gutterTotal, first + Math.ceil(ed.clientHeight / lh) + 2);
+    const out = [];
+    for (let i = first + 1; i <= last; i++) out.push(i === gutterCur ? `<b>${i}</b>` : String(i));
+    inner.innerHTML = out.join('\n');
+    inner.style.fontSize = cs.fontSize;
+    inner.style.transform = `translateY(${pt + first * lh - ed.scrollTop}px)`;
+    g.style.width = `calc(${String(gutterTotal).length}ch + 20px)`; g.style.fontSize = cs.fontSize;
   }
   function styleEditor(ta){
     ta.classList.toggle('nowrap', !settings.wrap);
@@ -477,10 +590,12 @@
     docs.forEach(d => styleEditor(d.ta));
     $('mWrap').classList.toggle('on', settings.wrap);
     $('mStatus').classList.toggle('on', settings.status);
+    $('mLineNo').classList.toggle('on', settings.lineNo);
+    $('gutter').classList.toggle('show', settings.lineNo);
     $('statusbar').style.display = settings.status ? '' : 'none';
     $('setTheme').value = settings.theme; $('setWrap').checked = settings.wrap;
     $('setFont').value = String(settings.font); $('setAutosave').checked = settings.autosave;
-    $('setEol').value = settings.eol;
+    $('setEol').value = settings.eol; $('setEnc').value = settings.enc; $('setRestoreTabs').checked = settings.restoreTabs;
     updateStatus();
   }
   let toastTimer;
@@ -504,7 +619,7 @@
         }
         if (!d.changed && d.draftSaved) continue; // 前回から変更のない文書は書き直さない
         d.changed = false;
-        await idb.put('drafts', draftKey(d), { text: d.ta.value, name: d.fileName, eol: d.eol, t: new Date().toISOString() });
+        await idb.put('drafts', draftKey(d), { text: d.ta.value, name: d.fileName, eol: d.eol, enc: d.enc, t: new Date().toISOString() });
         d.draftSaved = true; quotaWarned = false;
         // 書き込みの間にタブが閉じられた・保存された場合は、残った一時保存を消す(閉じたはずの文章が復元候補に出ないように)
         if (!docs.includes(d) || !d.dirty) { await idb.del('drafts', draftKey(d)); d.draftSaved = false; }
@@ -603,11 +718,14 @@
     ta.spellcheck = false; ta.setAttribute('autocomplete', 'off'); ta.placeholder = PLACEHOLDER; ta.hidden = true;
     $('editorWrap').insertBefore(ta, $('dropzone'));
     const d = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), ta,
-      fileName:null, handle:null, lastModified:0, dirty:false, savedAt:null, eol:settings.eol, enc:'UTF-8',
+      fileName:null, handle:null, lastModified:0, dirty:false, savedAt:null, eol:settings.eol, enc:settings.enc,
       changed:false, draftSaved:false, tabEl:null };
     // 入力欄ごとのイベント
     ta.addEventListener('input', () => onInput(d));
+    // 前回のタブを再開したとき、まだ読み込んでいないファイルはクリック(またはキー入力)で読み込む
+    ['mousedown','keydown'].forEach(ev => ta.addEventListener(ev, () => { if (d.lazy) loadLazy(d, true); }));
     ['keyup','click','select','focus'].forEach(ev => ta.addEventListener(ev, scheduleStatus));
+    ta.addEventListener('scroll', () => { if (settings.lineNo && d === D) requestAnimationFrame(() => renderGutter()); });
     ta.addEventListener('keydown', e => { if (e.key === 'Tab' && !e.ctrlKey && !e.altKey) { e.preventDefault(); insertText('\t'); } });
     ta.addEventListener('wheel', e => { if (e.ctrlKey) { e.preventDefault(); zoom(e.deltaY < 0 ? 10 : -10); } }, { passive:false });
     // タブ見出し
@@ -617,8 +735,19 @@
     tab.append(lbl, x);
     tab.addEventListener('click', e => { if (e.target === x) closeDoc(d); else activate(d); });
     tab.addEventListener('auxclick', e => { if (e.button === 1) { e.preventDefault(); closeDoc(d); } }); // ホイールクリックで閉じる
+    tab.addEventListener('contextmenu', e => { e.preventDefault(); openTabMenu(d, e.clientX, e.clientY); });
+    // ドラッグで並べ替え
+    tab.draggable = true;
+    tab.addEventListener('dragstart', e => { dragDoc = d; tab.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('application/x-notepad-tab', d.id); });
+    tab.addEventListener('dragend', () => { dragDoc = null; document.querySelectorAll('.tab').forEach(t => t.classList.remove('dragging', 'drop-before', 'drop-after')); });
+    tab.addEventListener('dragover', e => { if (!dragDoc || dragDoc === d) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+      const r = tab.getBoundingClientRect(), before = e.clientX < r.left + r.width / 2;
+      tab.classList.toggle('drop-before', before); tab.classList.toggle('drop-after', !before); });
+    tab.addEventListener('dragleave', () => tab.classList.remove('drop-before', 'drop-after'));
+    tab.addEventListener('drop', e => { if (!dragDoc || dragDoc === d) return; e.preventDefault();
+      const r = tab.getBoundingClientRect(); moveTab(dragDoc, d, e.clientX < r.left + r.width / 2); });
     d.tabEl = tab; $('tabs').appendChild(tab);
-    docs.push(d); styleEditor(ta); updateTab(d);
+    docs.push(d); styleEditor(ta); updateTab(d); scheduleSession();
     return d;
   }
   function activate(d){
@@ -629,15 +758,49 @@
     d.tabEl.scrollIntoView({ block:'nearest', inline:'nearest' });
     updateTitle(); updateStatus();
     if ($('findbar').classList.contains('show')) updateFindCount();
-    ed.focus();
+    ed.focus(); scheduleSession();
+    if (d.lazy) loadLazy(d, false); // 許可済みなら黙って読み込む
   }
   function newTab(){ const d = createDoc(); activate(d); return d; }
+  let dragDoc = null;
+  // src のタブを target の前(before=true)または後ろに移す
+  function moveTab(src, target, before){
+    docs.splice(docs.indexOf(src), 1);
+    docs.splice(docs.indexOf(target) + (before ? 0 : 1), 0, src);
+    $('tabs').insertBefore(src.tabEl, before ? target.tabEl : target.tabEl.nextSibling);
+    updateTitle(); scheduleSession();
+  }
   // 何も書いていない無題のタブは、ファイルを開くときに再利用する(Windowsのメモ帳と同じ)
   const isBlank = d => !d.dirty && !d.fileName && !d.ta.value;
   const tabForOpen = () => (D && isBlank(D)) ? D : newTab();
-  function closeDoc(d){
-    if (d.dirty) { activate(d); guardUnsaved(() => removeDoc(d)); return; }
-    removeDoc(d);
+  // タブを閉じる。未保存なら確認し、キャンセルされたら false を返す
+  async function closeDoc(d){
+    if (!docs.includes(d)) return true;
+    if (d.dirty) {
+      const a = await askSaveChanges(d);
+      if (a === 'cancel') return false;
+      if (a === 'save' && !(await save(false, d))) return false;
+      if (a === 'discard') d.dirty = false;
+    }
+    removeDoc(d); return true;
+  }
+  // 複数のタブを順に閉じる(途中でキャンセルされたらそこで止める)
+  async function closeMany(list){
+    for (const d of list) { if (!(await closeDoc(d))) return false; }
+    return true;
+  }
+  // すべての未保存タブを保存する(保存先の選択をキャンセルしたらそこで止める)
+  async function saveAll(){
+    const targets = docs.filter(d => d.dirty);
+    if (!targets.length) { toast('保存が必要なタブはありません'); return; }
+    let n = 0;
+    for (const d of targets) {
+      if (!docs.includes(d) || !d.dirty) continue;
+      activate(d);
+      if (!(await save(false, d))) { toast(`${n} 件を保存しました(残りは保存していません)`); return; }
+      n++;
+    }
+    toast(`${n} 件のタブを保存しました`);
   }
   function removeDoc(d){
     const i = docs.indexOf(d); if (i === -1) return;
@@ -645,7 +808,43 @@
     docs.splice(i, 1); d.ta.remove(); d.tabEl.remove();
     if (D === d) { D = null; ed = null; activate(docs.length ? docs[Math.min(i, docs.length - 1)] : createDoc()); }
     else updateTitle();
+    scheduleSession();
   }
+  /* ---- タブの右クリックメニュー ---- */
+  let menuDoc = null;
+  function openTabMenu(d, x, y){
+    menuDoc = d; closeMenus();
+    const m = $('tabMenu'), i = docs.indexOf(d);
+    m.querySelector('[data-ctx=closeOthers]').disabled = docs.length < 2;
+    m.querySelector('[data-ctx=closeRight]').disabled = i === docs.length - 1;
+    m.classList.add('show');
+    const r = m.getBoundingClientRect();
+    m.style.left = Math.max(4, Math.min(x, innerWidth - r.width - 4)) + 'px';
+    m.style.top = Math.max(4, Math.min(y, innerHeight - r.height - 4)) + 'px';
+  }
+  function closeTabMenu(){ $('tabMenu').classList.remove('show'); }
+  $('tabMenu').addEventListener('click', async e => {
+    const b = e.target.closest('[data-ctx]'); if (!b || b.disabled) return;
+    const d = menuDoc; closeTabMenu(); if (!d || !docs.includes(d)) return;
+    try {
+      switch (b.dataset.ctx) {
+        case 'save': activate(d); await save(false, d); break;
+        case 'saveAs': activate(d); await save(true, d); break;
+        case 'close': await closeDoc(d); break;
+        case 'closeOthers': await closeMany(docs.filter(x => x !== d)); break;
+        case 'closeRight': await closeMany(docs.slice(docs.indexOf(d) + 1)); break;
+        case 'closeSaved': { const list = docs.filter(x => !x.dirty);
+          if (list.length === docs.length) list.splice(list.indexOf(D), 1); // 全部が対象なら表示中のタブは残す
+          await closeMany(list); break; }
+        case 'saveAll': await saveAll(); break;
+      }
+    } catch(err){ logError('タブのメニュー', err); }
+    refocusEditor();
+  });
+  document.addEventListener('mousedown', e => { if (!e.target.closest('#tabMenu')) closeTabMenu(); });
+  window.addEventListener('blur', closeTabMenu);
+  window.addEventListener('resize', () => renderGutter());
+
   function switchTab(n){ // n: 1~8 はその番号、9 は最後のタブ
     const d = n === 9 ? docs[docs.length - 1] : docs[n - 1];
     if (d) activate(d);
@@ -653,22 +852,21 @@
 
   function setDoc(text, name, handle, eol, enc, lastModified){
     ed.value = text; D.fileName = name; D.handle = handle || null; D.lastModified = lastModified || 0;
-    D.eol = eol || settings.eol; D.enc = enc || 'UTF-8';
-    D.dirty = false; D.savedAt = null;
+    D.eol = eol || settings.eol; D.enc = enc || settings.enc;
+    D.dirty = false; D.savedAt = null; D.lazy = false; ed.readOnly = false; ed.placeholder = PLACEHOLDER;
     ed.setSelectionRange(0,0); ed.scrollTop = 0;
-    deleteOwnDraft();
+    deleteOwnDraft(); scheduleSession();
     updateTitle(); updateStatus(); ed.focus();
   }
-  function takePending(){
-    const r = { next: state.pending, doc: state.pendingDoc && docs.includes(state.pendingDoc) ? state.pendingDoc : null };
-    state.pending = null; state.pendingDoc = null; return r;
-  }
-  function guardUnsaved(next){
-    if (!D.dirty) { next(); return; }
-    state.pending = next; state.pendingDoc = D;
-    $('confirmMsg').textContent = `「${D.fileName || headLabel(ed.value, 20)}」への変更内容を保存しますか?`;
+  // 保存確認ダイアログ:'save' / 'discard' / 'cancel' のいずれかを返す。対象は引数のタブに固定
+  let confirmResolve = null;
+  function askSaveChanges(d){
+    activate(d);
+    $('confirmMsg').textContent = `「${docLabel(d)}」への変更内容を保存しますか?`;
     openDlg('confirmDlg');
+    return new Promise(res => { confirmResolve = res; });
   }
+  function answerConfirm(v){ closeDlg('confirmDlg'); const r = confirmResolve; confirmResolve = null; if (r) r(v); if (v === 'cancel' && ed) ed.focus(); }
   // 先頭部分に NUL(0x00)があればテキストではないと判断する(UTF-16 は BOM があれば除外)
   function looksBinary(buf){
     const b = new Uint8Array(buf, 0, Math.min(buf.byteLength, 8192));
@@ -688,6 +886,9 @@
   async function loadBuffer(buf, name, handle, lastModified){
     const already = await findDocByHandle(handle);
     if (already) { activate(already); toast(`「${already.fileName}」はすでに開いています`); return; }
+    const BIG = 5 * 1024 * 1024;
+    if (buf.byteLength > BIG && !(await ask('大きなファイルです',
+      `「${name}」は ${(buf.byteLength / 1048576).toFixed(1)} MB あります。ブラウザの入力欄の性質上、開くと文字の入力や操作が重くなります。開きますか?`, '開く'))) return;
     if (looksBinary(buf)) {
       showWarn(`「${name}」はテキストファイルではないため開けません(Excel・Word・画像などは開けません)。Excelの内容を使いたいときは、Excelでセルをコピーしてこのアプリに貼り付けてください。`);
       return;
@@ -696,7 +897,6 @@
     const eol = /\r\n/.test(text) ? 'CRLF' : (/\n/.test(text) ? 'LF' : settings.eol);
     activate(tabForOpen());
     setDoc(text.replace(/\r\n?/g, '\n'), name, handle, eol, enc, lastModified);
-    if (!enc.startsWith('UTF-8')) showWarn(`このファイルは ${enc} で読み込みました。保存すると UTF-8 に変換されます。`);
     toast(`「${name}」を開きました`);
     if (handle) { addRecent(handle); announce('opened'); }
   }
@@ -721,14 +921,90 @@
     try { await loadBuffer(await f.arrayBuffer(), f.name, null, f.lastModified); } catch(e){ logError('ファイルを開く', e); }
   });
   const outputText = d => d.eol === 'CRLF' ? d.ta.value.replace(/\n/g, '\r\n') : d.ta.value;
+
+  /* ---- 文字コード変換(保存用) ---- */
+  // Shift_JIS の変換表は、ブラウザ自身の読み込み処理(TextDecoder)から作る。読み込みと保存で同じ対応になる
+  let sjisMap = null;
+  function buildSjisMap(){
+    const dec = new TextDecoder('shift_jis'), m = new Map(), later = [], buf = new Uint8Array(2);
+    for (let l = 0x81; l <= 0xFC; l++) {
+      if (l > 0x9F && l < 0xE0) continue;
+      for (let t = 0x40; t <= 0xFC; t++) {
+        if (t === 0x7F) continue;
+        buf[0] = l; buf[1] = t;
+        const ch = dec.decode(buf);
+        if (ch.length !== 1 || ch === '\uFFFD') continue;
+        const cp = ch.charCodeAt(0), code = (l << 8) | t;
+        if (l === 0xED || l === 0xEE) { later.push([cp, code]); continue; } // NEC選定IBM拡張(重複)は後回し=FAxx~側を優先
+        if (!m.has(cp)) m.set(cp, code);
+      }
+    }
+    for (const [cp, code] of later) if (!m.has(cp)) m.set(cp, code);
+    // Mac等で入力されやすい「見た目が同じで番号が違う文字」を、Windowsの対応する文字として保存する
+    [[0xA5,0x5C],[0x203E,0x7E],[0x2212,0x817C],[0x301C,0x8160],[0x2016,0x8161],[0x2014,0x815C],[0xA2,0x8191],[0xA3,0x8192],[0xAC,0x81CA]]
+      .forEach(([cp, code]) => { if (!m.has(cp)) m.set(cp, code); });
+    return m;
+  }
+  // 文字列をバイト列にする。表せない文字は bad に集め、「?」で置き換える
+  function encodeText(text, enc){
+    if (enc === 'UTF-8' || enc === 'UTF-8 (BOM)') {
+      const body = new TextEncoder().encode(text);
+      if (enc === 'UTF-8') return { bytes: body, bad: [] };
+      const out = new Uint8Array(body.length + 3); out.set([0xEF,0xBB,0xBF]); out.set(body, 3); return { bytes: out, bad: [] };
+    }
+    if (enc === 'UTF-16 LE' || enc === 'UTF-16 BE') {
+      const le = enc === 'UTF-16 LE', out = new Uint8Array(2 + text.length * 2);
+      out[0] = le ? 0xFF : 0xFE; out[1] = le ? 0xFE : 0xFF;
+      for (let i = 0; i < text.length; i++) { const c = text.charCodeAt(i);
+        out[2 + i*2] = le ? c & 0xFF : c >> 8; out[3 + i*2] = le ? c >> 8 : c & 0xFF; }
+      return { bytes: out, bad: [] };
+    }
+    if (enc === 'Shift_JIS') {
+      if (!sjisMap) sjisMap = buildSjisMap();
+      const out = new Uint8Array(text.length * 2); let n = 0; const bad = new Set();
+      for (const ch of text) {
+        const cp = ch.codePointAt(0);
+        if (cp <= 0x80) out[n++] = cp;
+        else if (cp >= 0xFF61 && cp <= 0xFF9F) out[n++] = cp - 0xFF61 + 0xA1;
+        else { const code = cp <= 0xFFFF ? sjisMap.get(cp) : undefined;
+          if (code === undefined) { bad.add(ch); out[n++] = 0x3F; }
+          else if (code < 0x100) out[n++] = code;
+          else { out[n++] = code >> 8; out[n++] = code & 0xFF; } }
+      }
+      return { bytes: out.slice(0, n), bad: [...bad] };
+    }
+    throw new Error('未対応の文字コード: ' + enc);
+  }
+  // 保存するバイト列を用意する。表せない文字があれば確認し、やめるなら null
+  async function prepareBytes(d){
+    const { bytes, bad } = encodeText(outputText(d), d.enc);
+    if (bad.length) {
+      const list = bad.slice(0, 10).join(' ') + (bad.length > 10 ? ` ほか ${bad.length - 10} 種類` : '');
+      const ok = await ask(`${d.enc} で保存できない文字があります`,
+        `次の文字は ${d.enc} では表せません:${list}\n「?」に置き換えて保存しますか?(元の文字を残したい場合は「キャンセル」を押し、ステータスバーの文字コードを UTF-8 に変更してください)`, '「?」に置き換えて保存');
+      if (!ok) return null;
+    }
+    return bytes;
+  }
+  function openEncDlg(){ $('encSelect').value = D.enc; openDlg('encDlg'); $('encSelect').focus(); }
+  function applyEnc(){
+    closeDlg('encDlg');
+    const v = $('encSelect').value; if (v === D.enc) return;
+    D.enc = v; onInput(D); // 保存し直す必要があるので「未保存」にする
+    updateStatus(); toast(`保存する文字コードを ${v} にしました。保存すると反映されます`);
+  }
+  $('stEnc').addEventListener('click', openEncDlg);
   function markSaved(d, name){
     d.fileName = name; d.dirty = false; d.savedAt = new Date().toISOString();
-    d.enc = 'UTF-8'; deleteDraft(d); updateTab(d); updateTitle(); updateStatus();
+    deleteDraft(d); updateTab(d); updateTitle(); updateStatus(); scheduleSession();
   }
   // 保存は「保存を始めたときのタブ」に対して行う(保存先を選ぶ間にタブを切り替えても混ざらない)
-  async function save(forceAs){
-    const d = D;
+  async function save(forceAs, d){
+    d = d || D;
+    if (d.lazy) { toast('このタブはまだファイルを読み込んでいません。本文をクリックして読み込んでください'); return false; }
     try {
+      const bytes = await prepareBytes(d);
+      if (!bytes) return false;
       if (fsaSupported) {
         let h = d.handle;
         if (h && !forceAs && d.lastModified) {
@@ -744,27 +1020,28 @@
           h = await window.showSaveFilePicker({ suggestedName: d.fileName || (headLabel(d.ta.value, 30).replace(/^無題: ?/, '').replace(/[\\/:*?"<>|…]/g, '') || '無題') + '.txt',
             types:[{ description:'テキスト', accept:{ 'text/plain':['.txt'] } }] });
         }
-        const w = await h.createWritable(); await w.write(outputText(d)); await w.close();
+        const w = await h.createWritable(); await w.write(bytes); await w.close();
         d.handle = h;
         try { d.lastModified = (await h.getFile()).lastModified; } catch(e){ d.lastModified = Date.now(); }
         markSaved(d, h.name); toast('保存しました');
         addRecent(h); announce('saved', d);
         return true;
       }
-      return downloadSave(d);
+      return downloadSave(d, bytes);
     } catch(e){
       if (e && e.name === 'AbortError') return false;
       if (e && (e.name === 'SecurityError' || e.name === 'NotAllowedError')) {
         showWarn('この環境ではファイルへの上書き保存が制限されています。ダウンロードフォルダに保存します。');
-        return downloadSave(d);
+        return downloadSave(d, await prepareBytes(d));
       }
       logError('保存', e); return false;
     }
   }
-  function downloadSave(d){
+  function downloadSave(d, bytes){
+    if (!bytes) return false;
     let name = d.fileName || (headLabel(d.ta.value, 30).replace(/^無題: ?/, '').replace(/[\\/:*?"<>|…]/g, '') || '無題');
     if (!/\.[^.]+$/.test(name)) name += '.txt';
-    const blob = new Blob([outputText(d)], { type:'text/plain;charset=utf-8' });
+    const blob = new Blob([bytes], { type:'text/plain' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
@@ -796,32 +1073,73 @@
     if (sel && !sel.includes('\n')) $('findInput').value = sel;
     $('findInput').focus(); $('findInput').select(); updateFindCount();
   }
-  const norm = s => $('matchCase').checked ? s : s.toLowerCase();
-  function countMatches(q){ if (!q) return 0; const h = norm(ed.value), n = norm(q); let c = 0, i = 0;
-    while ((i = h.indexOf(n, i)) !== -1) { c++; i += n.length; } return c; }
-  function updateFindCount(){ const q = $('findInput').value; $('findStatus').textContent = q ? `${countMatches(q)} 件` : ''; }
+  // 検索条件を正規表現にする(通常の検索は文字をそのまま探す)。正しくない正規表現なら null
+  const MAX_HITS = 100000;
+  function buildRe(){
+    const q = $('findInput').value; if (!q) return null;
+    const src = $('useRegex').checked ? q : q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    try { return new RegExp(src, 'gmu' + ($('matchCase').checked ? '' : 'i')); } catch(e){ return null; }
+  }
+  const badRe = () => !!$('findInput').value && !buildRe();
+  // from の位置以降で最初に見つかる(長さ0ではない)一致
+  function matchFrom(re, from){
+    re.lastIndex = from;
+    for (let m; (m = re.exec(ed.value)); ) { if (m[0].length) return m; re.lastIndex = m.index + 1; }
+    return null;
+  }
+  function countMatches(){
+    const re = buildRe(); if (!re) return 0;
+    let c = 0; re.lastIndex = 0;
+    for (let m; (m = re.exec(ed.value)) && c < MAX_HITS; ) { if (m[0].length) c++; else re.lastIndex = m.index + 1; }
+    return c;
+  }
+  function updateFindCount(){
+    if (!$('findInput').value) { $('findStatus').textContent = ''; return; }
+    if (badRe()) { $('findStatus').textContent = '正規表現が正しくありません'; return; }
+    const n = countMatches(); $('findStatus').textContent = `${n >= MAX_HITS ? MAX_HITS.toLocaleString() + ' 件以上' : n + ' 件'}`;
+  }
   function find(dir){
-    const q = $('findInput').value; if (!q) { $('findInput').focus(); return false; }
-    const h = norm(ed.value), n = norm(q);
-    let idx;
-    if (dir > 0) { idx = h.indexOf(n, ed.selectionEnd); if (idx === -1) idx = h.indexOf(n, 0); }
-    else { idx = h.lastIndexOf(n, Math.max(0, ed.selectionStart - 1)); if (idx === -1 || idx >= ed.selectionStart) idx = h.lastIndexOf(n); }
-    if (idx === -1) { $('findStatus').textContent = '見つかりません'; return false; }
-    ed.focus(); ed.setSelectionRange(idx, idx + q.length); scrollToCaret(); updateFindCount(); updateStatus();
+    if (!$('findInput').value) { $('findInput').focus(); return false; }
+    const re = buildRe(); if (!re) { $('findStatus').textContent = '正規表現が正しくありません'; return false; }
+    let m = null;
+    if (dir > 0) m = matchFrom(re, ed.selectionEnd) || matchFrom(re, 0);
+    else { // 後ろ向き:カーソルより前の最後の一致、なければ全体の最後
+      let last = null, lastAll = null; re.lastIndex = 0;
+      for (let x, c = 0; (x = re.exec(ed.value)) && c < MAX_HITS; c++) {
+        if (!x[0].length) { re.lastIndex = x.index + 1; continue; }
+        if (x.index < ed.selectionStart) last = x; lastAll = x;
+      }
+      m = last || lastAll;
+    }
+    if (!m) { $('findStatus').textContent = '見つかりません'; return false; }
+    ed.focus(); ed.setSelectionRange(m.index, m.index + m[0].length); scrollToCaret(); updateFindCount(); updateStatus();
     return true;
   }
+  // 置換文字列の $1 や $& を展開する(正規表現のときだけ)
+  function expand(rep, m){
+    if (!$('useRegex').checked) return rep;
+    return rep.replace(/\$(\$|&|\d{1,2}|<([^>]+)>)/g, (all, t, name) => {
+      if (t === '$') return '$'; if (t === '&') return m[0];
+      if (name !== undefined) return (m.groups && m.groups[name]) || '';
+      const i = +t; return i < m.length ? (m[i] || '') : all;
+    });
+  }
   function replaceOne(){
-    const q = $('findInput').value; if (!q) return;
-    const sel = ed.value.slice(ed.selectionStart, ed.selectionEnd);
-    if (sel && norm(sel) === norm(q)) insertText($('replaceInput').value);
+    const re = buildRe(); if (!re) { updateFindCount(); return; }
+    const m = matchFrom(re, ed.selectionStart);
+    if (m && m.index === ed.selectionStart && m.index + m[0].length === ed.selectionEnd) insertText(expand($('replaceInput').value, m));
     find(1);
   }
   function replaceAll(){
-    const q = $('findInput').value; if (!q) return;
-    const n = countMatches(q); if (!n) { $('findStatus').textContent = '見つかりません'; return; }
-    const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $('matchCase').checked ? 'g' : 'gi');
-    const r = $('replaceInput').value;
-    const out = ed.value.replace(re, () => r);
+    const re = buildRe(); if (!re) { updateFindCount(); return; }
+    let n = 0; const r = $('replaceInput').value;
+    const out = ed.value.replace(re, (...args) => {
+      const m = args.slice(0, -2); if (typeof args[args.length - 1] === 'object') m.pop(); // (match, p1.., offset, string, groups?)
+      const groups = typeof args[args.length - 1] === 'object' ? args[args.length - 1] : undefined;
+      if (!m[0].length && !$('useRegex').checked) return m[0];
+      n++; const mm = Object.assign([...m], { groups }); return expand(r, mm);
+    });
+    if (!n) { $('findStatus').textContent = '見つかりません'; return; }
     ed.focus(); ed.select(); insertText(out); ed.setSelectionRange(0,0);
     $('findStatus').textContent = `${n} 件置換しました`;
   }
@@ -830,6 +1148,45 @@
     const line = ed.value.slice(0, ed.selectionStart).split('\n').length;
     const target = (line - 1) * lineH;
     if (target < ed.scrollTop || target > ed.scrollTop + ed.clientHeight - lineH*2) ed.scrollTop = Math.max(0, target - ed.clientHeight/3);
+  }
+
+  /* ================= 定型文 ================= */
+  const SNIP_KEY = 'np.snippets';
+  const SNIP_DEFAULT = [
+    { name: 'あいさつ(社内)', text: 'お疲れ様です。\n\n' },
+    { name: '議事録のひな形', text: '■ 日時:{日付} {時刻}\n■ 出席者:\n■ 議題:\n\n■ 決定事項:\n・\n\n■ 宿題(担当・期限):\n・\n' }
+  ];
+  function readSnips(){ try { const v = JSON.parse(store.get(SNIP_KEY)); return Array.isArray(v) ? v : SNIP_DEFAULT.slice(); } catch(e){ return SNIP_DEFAULT.slice(); } }
+  const writeSnips = list => store.set(SNIP_KEY, JSON.stringify(list));
+  let snipEditing = -1;
+  function fillSnip(text){
+    const d = new Date();
+    return text.replace(/\{日付\}/g, `${d.getFullYear()}/${p2(d.getMonth()+1)}/${p2(d.getDate())}`).replace(/\{時刻\}/g, `${p2(d.getHours())}:${p2(d.getMinutes())}`);
+  }
+  function renderSnips(){
+    const list = readSnips(), ul = $('snipList'); ul.textContent = '';
+    $('snipEmpty').style.display = list.length ? 'none' : '';
+    list.forEach((sn, i) => {
+      const li = document.createElement('li');
+      const b = document.createElement('button'); b.className = 'open'; b.textContent = sn.name; b.title = sn.text;
+      const dsc = document.createElement('div'); dsc.className = 'desc'; dsc.textContent = sn.text.replace(/\s+/g, ' ').slice(0, 50); b.appendChild(dsc);
+      b.addEventListener('click', () => { closeDlg('snipDlg'); insertText(fillSnip(sn.text)); });
+      const edb = document.createElement('button'); edb.className = 'rm'; edb.title = '編集'; edb.textContent = '✎';
+      edb.addEventListener('click', () => { snipEditing = i; $('snipName').value = sn.name; $('snipText').value = sn.text;
+        $('snipFormTitle').textContent = `「${sn.name}」を編集`; $('snipSaveBtn').textContent = '更新'; $('snipCancelBtn').style.display = ''; $('snipText').focus(); });
+      const rm = document.createElement('button'); rm.className = 'rm'; rm.title = '削除'; rm.textContent = '✕';
+      rm.addEventListener('click', () => { const l = readSnips(); l.splice(i, 1); writeSnips(l); resetSnipForm(); renderSnips(); toast(`「${sn.name}」を削除しました`); });
+      li.append(b, edb, rm); ul.appendChild(li);
+    });
+  }
+  function resetSnipForm(){ snipEditing = -1; $('snipName').value = ''; $('snipText').value = '';
+    $('snipFormTitle').textContent = '新しい定型文を追加'; $('snipSaveBtn').textContent = '追加'; $('snipCancelBtn').style.display = 'none'; }
+  function saveSnip(){
+    const name = $('snipName').value.trim(), text = $('snipText').value;
+    if (!name || !text) { toast('名前と本文を入力してください'); return; }
+    const l = readSnips();
+    if (snipEditing >= 0 && snipEditing < l.length) l[snipEditing] = { name, text }; else l.push({ name, text });
+    writeSnips(l); toast(snipEditing >= 0 ? '定型文を更新しました' : '定型文を追加しました'); resetSnipForm(); renderSnips();
   }
 
   /* ================= 行へ移動 ================= */
@@ -894,7 +1251,7 @@
     const openKeys = new Set(docs.map(draftKey));
     const all = await idb.entries('drafts');
     for (const { key, value } of all) {
-      if (openKeys.has(key)) continue;
+      if (openKeys.has(key) || String(key).startsWith(SESSION)) continue; // タブ構成の記録は書きかけではない
       const owner = ownerOf(key); // 旧形式(ブラウザタブIDのみ)のキーもそのまま扱える
       if (owner === tabId ? !offerOwn : isAlive(owner)) continue;
       if (value && typeof value.text === 'string') out.push({ key, d: value }); else await idb.del('drafts', key);
@@ -918,9 +1275,126 @@
     if (!d) return false;
     activate(tabForOpen());
     ed.value = d.text; D.fileName = d.name; D.handle = null; D.lastModified = 0;
-    D.eol = d.eol || settings.eol; D.enc = 'UTF-8'; D.dirty = true; D.changed = true;
+    D.eol = d.eol || settings.eol; D.enc = d.enc || 'UTF-8'; D.dirty = true; D.changed = true;
     updateTitle(); updateStatus();
     return true;
+  }
+
+  /* ================= 前回のタブを再開(タブ構成の記録と復元) ================= */
+  // 記録は drafts ストアに「session:ブラウザのタブID」として保存する(DBの版を上げずに済むため)
+  const SESSION = 'session:';
+  let sessTimer = 0, sessReady = false;
+  function scheduleSession(){ if (!sessReady) return; clearTimeout(sessTimer); sessTimer = setTimeout(writeSession, 300); }
+  async function writeSession(){
+    clearTimeout(sessTimer);
+    if (!sessReady) return;
+    const key = SESSION + tabId;
+    try {
+      if (!settings.restoreTabs) { await idb.del('drafts', key); return; }
+      await idb.put('drafts', key, { t: new Date().toISOString(), active: D ? D.id : null,
+        docs: docs.map(d => ({ id: d.id, name: d.fileName, handle: d.handle || null, eol: d.eol, enc: d.enc, lastModified: d.lastModified })) });
+    } catch(e){ logError('タブ構成の記録', e); }
+  }
+  // 起動時に呼ぶ。再読み込みなら自分の記録、最初のウィンドウなら最後に閉じたウィンドウの記録を戻す
+  async function restoreSession(){
+    if (!settings.restoreTabs) return 0;
+    const all = await idb.entries('drafts');
+    const sessions = all.filter(x => String(x.key).startsWith(SESSION)).map(x => ({ key: x.key, owner: String(x.key).slice(SESSION.length), v: x.value || {} }));
+    let pick = sessions.find(x => x.owner === tabId);
+    if (!pick) {
+      const othersOpen = store.keys('np.alive.').some(k => k !== 'np.alive.' + tabId && isAlive(k.slice(9)));
+      if (othersOpen) return 0; // 2つ目以降のウィンドウは白紙で始める(Windowsのメモ帳と同じ)
+      const dead = sessions.filter(x => !isAlive(x.owner)).sort((a, b) => (a.v.t || '') < (b.v.t || '') ? 1 : -1);
+      pick = dead[0];
+      for (const x of dead.slice(1)) await idb.del('drafts', x.key); // 古い記録は消す(書きかけ自体は一覧に残る)
+    }
+    if (!pick) return 0;
+    await idb.del('drafts', pick.key); // 先に消して、別のタブが同時に同じ記録を戻さないようにする
+    const drafts = new Map(all.map(x => [x.key, x.value]));
+    const made = [], oldKeys = [];
+    let activeDoc = null;
+    for (const e of (pick.v.docs || [])) {
+      const dk = pick.owner + ':' + e.id, dr = drafts.get(dk);
+      const hasDraft = dr && typeof dr.text === 'string';
+      if (!hasDraft && !e.handle) continue; // 白紙だったタブは戻さない
+      const d = (made.length === 0 && isBlank(D)) ? D : createDoc();
+      d.fileName = (hasDraft ? dr.name : null) || e.name || null; d.handle = e.handle || null;
+      d.eol = (hasDraft && dr.eol) || e.eol || settings.eol; d.enc = (hasDraft && dr.enc) || e.enc || settings.enc;
+      d.lastModified = e.lastModified || 0;
+      if (hasDraft) { d.ta.value = dr.text; d.dirty = true; d.changed = true; oldKeys.push(dk); }
+      else { d.lazy = true; d.ta.readOnly = true; d.ta.placeholder = `「${e.name}」を読み込むには、ここをクリックしてください(ファイルを読む許可を求められたら「許可」を押してください)`; }
+      updateTab(d); made.push(d);
+      if (e.id === pick.v.active) activeDoc = d;
+    }
+    if (!made.length) return 0;
+    await writeDraft(); // 新しいタブとして一時保存してから、元の一時保存を消す
+    for (const k of oldKeys) await idb.del('drafts', k);
+    activate(activeDoc || made[made.length - 1]);
+    if (D.lazy) loadLazy(D, false);
+    made.forEach(updateTab); updateTitle();
+    return made.length;
+  }
+  // まだ読み込んでいないファイルのタブを読み込む。interactive=true ならアクセス許可を求める
+  async function loadLazy(d, interactive){
+    if (!d.lazy || d.loading || !d.handle) return;
+    d.loading = true;
+    try {
+      let perm = await d.handle.queryPermission({ mode: 'read' });
+      if (perm !== 'granted' && interactive) perm = await d.handle.requestPermission({ mode: 'read' });
+      if (perm !== 'granted') return;
+      const f = await d.handle.getFile(), buf = await f.arrayBuffer();
+      const { text, enc } = decode(buf);
+      if (!docs.includes(d)) return;
+      d.ta.value = text.replace(/\r\n?/g, '\n');
+      d.eol = /\r\n/.test(text) ? 'CRLF' : (/\n/.test(text) ? 'LF' : d.eol); d.enc = enc;
+      d.lastModified = f.lastModified; d.lazy = false; d.dirty = false;
+      d.ta.readOnly = false; d.ta.placeholder = PLACEHOLDER;
+      updateTab(d); if (d === D) { updateTitle(); updateStatus(); }
+      announce('opened', d); scheduleSession();
+    } catch(e){
+      if (e && e.name === 'NotFoundError') {
+        d.ta.placeholder = `「${d.fileName}」が見つかりません(移動・削除された可能性があります)。このタブは閉じてください。`;
+        d.handle = null; scheduleSession();
+      } else if (!(e && e.name === 'AbortError')) logError('ファイルの再読み込み', e);
+    } finally { d.loading = false; }
+  }
+
+  async function restoreOne(key){
+    try {
+      if (await restoreDraft(key)) {
+        await writeDraft(); await idb.del('drafts', key); toast('書きかけの内容を復元しました'); ed.focus();
+        if (D.fileName && !D.handle) showWarn('復元した内容は元のファイルとの関連付けが外れています。「名前を付けて保存」で保存してください。');
+      } else toast('この書きかけは別のタブで復元済みか、削除されています');
+    } catch(e){ logError('復元', e); }
+    offerDrafts();
+  }
+  // 書きかけ一覧ダイアログ
+  async function showDrafts(){
+    const ul = $('draftList'); ul.textContent = '';
+    let list = [];
+    try { list = await listDrafts(); } catch(e){ logError('書きかけ一覧', e); }
+    $('draftEmpty').style.display = list.length ? 'none' : '';
+    $('draftAllBtn').disabled = !list.length;
+    list.forEach(({ key, d }) => {
+      const li = document.createElement('li');
+      const b = document.createElement('button'); b.className = 'open';
+      b.textContent = d.name || headLabel(d.text, 30);
+      b.title = d.text.slice(0, 300);
+      const s = document.createElement('div'); s.className = 'desc';
+      s.textContent = `${fmtDate(d.t)} ・ ${[...d.text].length.toLocaleString()} 文字 ・ ${d.text.replace(/\s+/g, ' ').slice(0, 40)}`;
+      b.appendChild(s);
+      b.addEventListener('click', async () => { closeDlg('draftsDlg'); await restoreOne(key); });
+      const rm = document.createElement('button'); rm.className = 'rm'; rm.title = 'この書きかけを削除'; rm.textContent = '✕';
+      rm.addEventListener('click', async () => {
+        closeDlg('draftsDlg'); // 確認ダイアログが隠れないよう一度閉じる
+        if (await ask('書きかけを削除', `「${d.name || headLabel(d.text, 20)}」の書きかけを削除します。元に戻せません。よろしいですか?`, '削除する')) {
+          await idb.del('drafts', key); offerDrafts();
+        }
+        showDrafts();
+      });
+      li.append(b, rm); ul.appendChild(li);
+    });
+    openDlg('draftsDlg');
   }
 
   /* ================= 更新(オフライン機能 / Service Worker) ================= */
@@ -968,6 +1442,10 @@
     clearRecent: async () => { for (const { key } of await idb.entries('recent')) await idb.del('recent', key); showRecent(); toast('一覧を消去しました'); },
     save: () => save(false),
     saveAs: () => save(true),
+    saveAll,
+    snippets: () => { resetSnipForm(); renderSnips(); openDlg('snipDlg'); },
+    snipSave: saveSnip, snipCancelEdit: resetSnipForm, closeSnip: () => closeDlg('snipDlg'),
+    encoding: openEncDlg, applyEnc, closeEnc: () => closeDlg('encDlg'),
     print: () => { fillPrint(); window.print(); },
     undo: () => { ed.focus(); document.execCommand('undo'); },
     redo: () => { ed.focus(); document.execCommand('redo'); },
@@ -981,7 +1459,13 @@
     selectAll: () => { ed.focus(); ed.select(); },
     timestamp,
     zoomIn: () => zoom(10), zoomOut: () => zoom(-10), zoomReset: () => zoom(0),
-    toggleWrap: () => { settings.wrap = !settings.wrap; saveSettings(); applySettings(); },
+    toggleWrap: () => { settings.wrap = !settings.wrap;
+      if (settings.wrap && settings.lineNo) { settings.lineNo = false; toast('折り返し表示中は行番号を表示できないため、行番号をオフにしました'); }
+      saveSettings(); applySettings(); },
+    // 行番号は「1行=1段」でないとずれるため、表示中は折り返しをオフにする
+    toggleLineNo: () => { settings.lineNo = !settings.lineNo;
+      if (settings.lineNo && settings.wrap) { settings.wrap = false; toast('行番号を表示するため、右端での折り返しをオフにしました'); }
+      saveSettings(); applySettings(); },
     toggleStatus: () => { settings.status = !settings.status; saveSettings(); applySettings(); },
     toggleTheme: () => { settings.theme = document.body.dataset.theme === 'dark' ? 'light' : 'dark'; saveSettings(); applySettings(); },
     settings: () => { renderLog(); openDlg('settingsDlg'); },
@@ -996,23 +1480,13 @@
       state.updating = true; await writeDraft();
       waitingWorker.postMessage({ type: 'SKIP_WAITING' });
     },
-    restore: async () => {
-      const key = currentOffer; $('restoreBanner').classList.remove('show');
-      if (!key) return;
-      try {
-        if (await restoreDraft(key)) {
-          await writeDraft(); await idb.del('drafts', key); toast('書きかけの内容を復元しました'); ed.focus();
-          if (D.fileName) showWarn('復元した内容は元のファイルとの関連付けが外れています。「名前を付けて保存」で保存してください。');
-        } else toast('この書きかけは別のタブで復元済みか、削除されています');
-      } catch(e){ logError('復元', e); }
-      offerDrafts();
-    },
+    restore: () => { const key = currentOffer; $('restoreBanner').classList.remove('show'); if (key) return restoreOne(key); },
     restoreAll: async () => {
-      $('restoreBanner').classList.remove('show');
+      $('restoreBanner').classList.remove('show'); closeDlg('draftsDlg');
       let n = 0, named = false;
       try {
         for (const { key } of (await listDrafts()).reverse()) { // 古い順に開き、最新を最後(表示中)にする
-          if (await restoreDraft(key)) { n++; if (D.fileName) named = true;
+          if (await restoreDraft(key)) { n++; if (D.fileName && !D.handle) named = true;
             await writeDraft(); await idb.del('drafts', key); } // 新しいタブ側の一時保存を書いてから元を消す
         }
       } catch(e){ logError('復元', e); }
@@ -1020,15 +1494,16 @@
       if (named) showWarn('復元した内容は元のファイルとの関連付けが外れています。ファイル名の付いたタブは「名前を付けて保存」で保存してください。');
       offerDrafts();
     },
+    drafts: () => showDrafts(),
+    closeDrafts: () => closeDlg('draftsDlg'),
     discardDraft: async () => {
       $('restoreBanner').classList.remove('show');
       try { if (currentOffer) await idb.del('drafts', currentOffer); } catch(e){ logError('一時保存の破棄', e); }
       toast('一時保存を破棄しました'); offerDrafts(); ed.focus();
     },
-    // 確認の対象は、ダイアログを出したときのタブ(表示中のタブが変わっていても取り違えない)
-    confirmSave: async () => { closeDlg('confirmDlg'); const d = takePending(); if (!d.doc) return; activate(d.doc); const ok = await save(false); if (ok && d.next) d.next(); },
-    confirmDiscard: () => { closeDlg('confirmDlg'); const d = takePending(); if (!d.doc) return; d.doc.dirty = false; deleteDraft(d.doc); if (d.next) d.next(); },
-    confirmCancel: () => { closeDlg('confirmDlg'); takePending(); if (ed) ed.focus(); },
+    confirmSave: () => answerConfirm('save'),
+    confirmDiscard: () => answerConfirm('discard'),
+    confirmCancel: () => answerConfirm('cancel'),
     askOk: () => answerAsk(true), askCancel: () => answerAsk(false)
   };
   document.addEventListener('click', e => {
@@ -1051,6 +1526,8 @@
   $('setWrap').addEventListener('change', e => { settings.wrap = e.target.checked; saveSettings(); applySettings(); });
   $('setFont').addEventListener('change', e => { settings.font = +e.target.value; saveSettings(); applySettings(); });
   $('setAutosave').addEventListener('change', e => { settings.autosave = e.target.checked; saveSettings(); writeDraft(); });
+  $('setRestoreTabs').addEventListener('change', e => { settings.restoreTabs = e.target.checked; saveSettings(); writeSession(); });
+  $('setEnc').addEventListener('change', e => { settings.enc = e.target.value; saveSettings(); });
   $('setEol').addEventListener('change', e => { settings.eol = e.target.value; saveSettings(); if (!D.fileName) { D.eol = settings.eol; updateStatus(); } });
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (settings.theme === 'system') applySettings(); });
 
@@ -1105,6 +1582,7 @@
   }
   $('findInput').addEventListener('input', updateFindCount);
   $('matchCase').addEventListener('change', updateFindCount);
+  $('useRegex').addEventListener('change', updateFindCount);
   $('findInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); find(e.shiftKey ? -1 : 1); } });
   $('replaceInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); replaceOne(); } });
   $('gotoInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doGoto(); } });
@@ -1116,7 +1594,8 @@
     if (e.key === 'Escape') {
       if ($('askDlg').classList.contains('show')) return run('askCancel');
       if ($('confirmDlg').classList.contains('show')) return run('confirmCancel');
-      ['gotoDlg','settingsDlg','recentDlg'].forEach(closeDlg);
+      closeTabMenu();
+      ['gotoDlg','settingsDlg','recentDlg','encDlg','draftsDlg','snipDlg'].forEach(closeDlg);
       if ($('findbar').classList.contains('show')) actions.closeFind();
       closeMenus(); return;
     }
@@ -1127,8 +1606,10 @@
     if (e.altKey && !c && k === 'n') return run('new');
     // タブ操作:Ctrl+W / Ctrl+Tab はブラウザが使うため Alt を使う
     if (e.altKey && !c && k === 'w') return run('closeTab');
+    if (e.altKey && !c && k === 't') return run('snippets');
     if (e.altKey && !c && !e.shiftKey && /^Digit[1-9]$/.test(e.code)) { e.preventDefault(); return switchTab(+e.code.slice(5)); }
     if (!c) return;
+    if (k === 's' && e.altKey) return run('saveAll');
     if (k === 's' && e.shiftKey) return run('saveAs');
     if (k === 's') return run('save');
     if (k === 'o' && e.shiftKey) return run('recent');
@@ -1144,8 +1625,8 @@
 
   /* ================= 終了時 ================= */
   window.addEventListener('beforeunload', e => { writeDraft(); if (docs.some(d => d.dirty) && !state.updating) { e.preventDefault(); e.returnValue = ''; } });
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') writeDraft(); });
-  window.addEventListener('pagehide', () => { writeDraft(); store.del('np.alive.' + tabId); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { writeDraft(); writeSession(); } });
+  window.addEventListener('pagehide', () => { writeDraft(); writeSession(); store.del('np.alive.' + tabId); });
 
   /* ================= 起動処理 ================= */
   async function startup(){
@@ -1164,10 +1645,14 @@
     }
     // 古いタブ生存記録の掃除(1日以上前)
     store.keys('np.alive.').forEach(k => { if (Date.now() - (+store.get(k) || 0) > 86400000) store.del(k); });
-    // 書きかけの復元(このタブの再読み込み分 + 閉じられたタブの残り)
+    // 前回のタブを再開 → 残りの書きかけは案内(このタブの再読み込み分 + 閉じられたタブの残り)
+    let resumed = 0;
+    try { resumed = await restoreSession(); } catch(e){ logError('前回のタブの再開', e); }
+    sessReady = true; writeSession();
+    if (resumed) toast(`前回のタブを ${resumed} 件 再開しました`);
     offerOwn = true;
     const found = await offerDrafts();
-    if (!found && !store.get(K.visited)) {
+    if (!found && !resumed && !store.get(K.visited)) {
       // ブラウザのデータが全消去されると「訪問済み」の印も消えるため、初回起動と区別できない。両方の可能性を伝える。
       showWarn('このブラウザで初めて開いたか、前回終了時にブラウザのデータが消去された可能性があります。会社PCなど閉じるとデータが消える環境では、こまめに「保存」でファイルに保存してください。');
     }
@@ -1184,7 +1669,7 @@
   // 動作確認用の窓口(URL に ?selftest を付けたときだけ有効)
   if (/[?&]selftest\b/.test(location.search)) {
     window.__np = { loadHandle: async h => { const f = await h.getFile(); await loadBuffer(await f.arrayBuffer(), f.name, h, f.lastModified); },
-      save, state, idb, tabId, writeDraft, docs, get D(){ return D; } };
+      save, state, idb, tabId, writeDraft, docs, encodeText, get D(){ return D; } };
   }
 
   startup().catch(e => logError('起動', e));
